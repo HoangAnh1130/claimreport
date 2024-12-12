@@ -390,9 +390,9 @@ if lua_chon != '' and lua_chon != 'Tất cả' and lua_chon != 'Tất cả và t
         def format_number(x):
             return "{:,.0f}".format(x)
 
-        group['Số tiền yêu cầu được bồi thường'] = group['Số tiền yêu cầu được bồi thường'].apply(format_number)
-        group['Số tiền được bồi thường'] = group['Số tiền được bồi thường'].apply(format_number)
-        group['Số tiền bồi thường trung bình/người'] = group['Số tiền bồi thường trung bình/người'].apply(format_number)
+        # group['Số tiền yêu cầu được bồi thường'] = group['Số tiền yêu cầu được bồi thường'].apply(format_number)
+        # group['Số tiền được bồi thường'] = group['Số tiền được bồi thường'].apply(format_number)
+        # group['Số tiền bồi thường trung bình/người'] = group['Số tiền bồi thường trung bình/người'].apply(format_number)
         
         #Đổi màu bảng
         def style_table(df):
