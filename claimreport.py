@@ -3,11 +3,11 @@ import pandas as pd
 import plotly.express as px
 # import plotly.graph_objects as go
 import streamlit as st
-import subprocess
-import webbrowser
-import os
-import time
-import psutil 
+# import subprocess
+# import webbrowser
+# import os
+# import time
+# import psutil 
 
 # Mở ứng dụng Streamlit trong trình duyệt
 def open_browser():
