@@ -5,9 +5,14 @@ import plotly.express as px
 import streamlit as st
 # import subprocess
 # import webbrowser
-# import os
-# import time
 # import psutil 
+# from selenium import webdriver
+# from selenium.webdriver.chrome.options import Options
+# from PIL import Image
+# from reportlab.lib.pagesizes import letter
+# from reportlab.pdfgen import canvas
+# import time
+# import os
 
 # Mở ứng dụng Streamlit trong trình duyệt
 def open_browser():
@@ -100,193 +105,57 @@ if dataframes:
     combined_df = pd.concat(dataframes, ignore_index=True)
 else:
     combined_df = pd.DataFrame(columns=['Insured ID','Nhóm', 'Nhóm bệnh', 'Yêu cầu bồi thường', 'Đã được bồi thường','Chênh lệch','Cơ sở y tế','Nhóm quyền lợi'])
-    # st.write("Combined DataFrame:")
-    # st.dataframe(combined_df)
-# st.subheader('Bồi thường theo nhóm khách hàng')
-# with st.expander('Claim by group data view') :
-#     combined_df["Nhóm"] = combined_df["Nhóm"].str.strip().str.lower()
-#     combined_df["Nhóm"] = combined_df["Nhóm"].replace({
-#     'others': 'Dependant',
-#     'member': 'Employee',
-#     'child': 'Dependant',
-#     'children' : 'Dependant',
-#     'nhanvien_01' : 'Employee',
-#     'người thân' : 'Dependant',
-#     'nguoithan_01' : 'Dependant',
-#     'nhân viên' : 'Employee'
-# })
-#     by_group = duckdb.sql("""
-#     SELECT 
-#         "Nhóm",
-#         count(distinct "Insured ID") as "Số người yêu cầu bồi thường",
-#         count("Insured ID") as "Số hồ sơ bồi thường",
-#         ROUND(SUM("Yêu cầu bồi thường")) AS "Số tiền yêu cầu được bồi thường",
-#         ROUND(SUM("Đã được bồi thường")) AS "Số tiền được bồi thường",
-#         ROUND(SUM("Đã được bồi thường")/count(distinct "Insured ID")) as "Số tiền bồi thường trung bình/người",
-#         concat(round(SUM("Đã được bồi thường")*100/SUM("Yêu cầu bồi thường"),1),'%') as "Tỉ lệ thành công"
-#     FROM combined_df
-#     GROUP BY "Nhóm"
-# """).df()
 
-#     st.dataframe(by_group)
+def capture_screenshot():
+    # Tùy chọn cho Selenium
+    options = Options()
+    options.headless = True  # Không mở cửa sổ trình duyệt
+    driver = webdriver.Chrome(options=options)
 
-# # This dataframe has 244 lines, but 4 distinct values for `day`
-# fig1 = px.pie(by_group, names='Nhóm', values="Số người yêu cầu bồi thường", title='Số người yêu cầu bồi thường theo nhóm khách hàng', 
-#               color="Nhóm",  
-#     color_discrete_map={
-#         "Dependant": "#3A0751", 
-#         "Employee": "#f2c85b"
-#     }  # Ánh xạ màu
-#               )
-# fig2 = px.pie(by_group, names='Nhóm', values="Số tiền được bồi thường", title='Số tiền đã bồi thường theo nhóm')
+    # Tải trang Streamlit
+    driver.get("http://localhost:8501")  # Đảm bảo bạn đã chạy Streamlit ở địa chỉ này
 
-# # Sử dụng st.columns để chia giao diện thành 2 cột
-# col1, col2 = st.columns(2)
+    # Chờ trang load hoàn toàn
+    time.sleep(5)
 
-# # Hiển thị các pie chart trong các cột tương ứng
-# with col1:
-#     st.plotly_chart(fig1)
+    # Lấy chiều cao của trang
+    total_height = driver.execute_script("return document.body.scrollHeight")
+    window_height = driver.execute_script("return window.innerHeight")
 
-# with col2:
-#     st.plotly_chart(fig2)
-    
-# st.subheader('Bồi thường theo quyền lợi bảo hiểm')
-# with st.expander('Claim by benefit data view') :
-#     by_benefit = duckdb.sql(
-#         """
-#     SELECT 
-#         "Nhóm quyền lợi",
-#         count(distinct "Insured ID") as "Số người yêu cầu .bồi thường",
-#         count("Insured ID") as "Số hồ sơ bồi thường",
-#         ROUND(SUM("Yêu cầu bồi thường")) AS "Số tiền yêu cầu được bồi thường",
-#         ROUND(SUM("Đã được bồi thường")) AS "Số tiền được bồi thường",
-#         ROUND(SUM("Đã được bồi thường")/count(distinct "Insured ID")) as "Số tiền bồi thường trung bình/người",
-#         concat(round(SUM("Đã được bồi thường")*100/SUM("Yêu cầu bồi thường"),1),'%') as "Tỉ lệ thành công"
-#     FROM combined_df
-#     GROUP BY "Nhóm quyền lợi"
-# """
-#     ).df()
-#     st.dataframe(by_benefit)
-# by_benefit = by_benefit.sort_values(by='Số tiền được bồi thường', ascending=False)
-# fig3 = px.bar(
-#     by_benefit,
-#     x="Nhóm quyền lợi",
-#     y="Số tiền được bồi thường",
-#     title="Số tiền đã bồi thường theo nhóm quyền lợi",
-#     text="Số tiền được bồi thường",  # Nhãn giá trị
-#     color="Nhóm quyền lợi",
-#     color_discrete_map={
-#         "Quyền lợi A": "#3A0751",
-#         "Quyền lợi B": "#FF5733",
-#         "Quyền lợi C": "#33FF57"
-#     }  # Tùy chỉnh màu sắc cho từng nhóm
-# )
+    # Bắt đầu chụp nhiều phần của trang
+    screenshot_count = total_height // window_height + 1
+    images = []
 
-# # Tùy chỉnh vị trí của nhãn và hiển thị số nguyên trong nhãn
-# fig3.update_traces(
-#     textposition='outside',  # Nhãn hiển thị bên ngoài cột
-#     texttemplate='%{text:,}' # Hiển thị số nguyên trong nhãn
-# )
-# fig3.update_layout(
-#     height=600  # Bạn có thể điều chỉnh giá trị này tùy theo nhu cầu của bạn
-# )
-# st.plotly_chart(fig3)
+    for i in range(screenshot_count):
+        # Cuộn trang để chụp
+        driver.execute_script(f"window.scrollTo(0, {i * window_height});")
+        time.sleep(1)  # Đợi một chút để nội dung kịp render
 
-# st.subheader('Bồi thường theo cơ sở y tế')
-# with st.expander('Claim by medical provider data view') :
-#     by_medicalprovider = duckdb.sql(
-#         """
-#     SELECT 
-#         "Cơ sở y tế",
-#         count(distinct "Insured ID") as "Số người yêu cầu bồi thường",
-#         count("Insured ID") as "Số hồ sơ bồi thường",
-#         ROUND(SUM("Yêu cầu bồi thường")) AS "Số tiền yêu cầu được bồi thường",
-#         ROUND(SUM("Đã được bồi thường")) AS "Số tiền được bồi thường",
-#         ROUND(SUM("Đã được bồi thường")/count(distinct "Insured ID")) as "Số tiền bồi thường trung bình/người",
-#         concat(round(SUM("Đã được bồi thường")*100/SUM("Yêu cầu bồi thường"),1),'%') as "Tỉ lệ thành công"
-#     FROM combined_df
-#     GROUP BY "Cơ sở y tế"
-# """
-#     ).df()
-#     st.dataframe(by_medicalprovider)
-# by_medicalprovider = by_medicalprovider.sort_values(by='Số tiền được bồi thường', ascending=False)
-# fig4 = px.bar(
-#     by_medicalprovider,
-#     x="Cơ sở y tế",
-#     y="Số tiền được bồi thường",
-#     title="Số tiền đã bồi thường theo Cơ sở y tế",
-#     text="Số tiền được bồi thường",  # Nhãn giá trị
-#     color="Cơ sở y tế",
-#     color_discrete_map={
-#         "Quyền lợi A": "#3A0751",
-#         "Quyền lợi B": "#FF5733",
-#         "Quyền lợi C": "#33FF57"
-#     }  # Tùy chỉnh màu sắc cho từng nhóm
-# )
+        # Chụp ảnh màn hình
+        screenshot_path = f"screenshot_{i}.png"
+        driver.save_screenshot(screenshot_path)
+        images.append(Image.open(screenshot_path))
 
-# # Tùy chỉnh vị trí của nhãn và hiển thị số nguyên trong nhãn
-# fig4.update_traces(
-#     textposition='outside',  # Nhãn hiển thị bên ngoài cột
-#     texttemplate='%{text:,}' # Hiển thị số nguyên trong nhãns
-# )
-# fig4.update_layout(
-#     height=600  # Bạn có thể điều chỉnh giá trị này tùy theo nhu cầu của bạn
-# )
-# st.plotly_chart(fig4)
-    
-    
-# # Hàm dừng tất cả các tiến trình Streamlit
-# def stop_streamlit():
-#     for proc in psutil.process_iter(attrs=['pid', 'name', 'cmdline']):
-#         try:
-#             # Kiểm tra nếu cmdline là một danh sách và có chứa 'streamlit'
-#             if isinstance(proc.info['cmdline'], list) and 'streamlit' in ' '.join(proc.info['cmdline']):
-#                 print(f"Stopping Streamlit process: {proc.info['pid']}")
-#                 proc.terminate()  # Dừng tiến trình Streamlit
-#         except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
-#             pass
+    driver.quit()
 
-# # Hàm kiểm tra xem Streamlit có đang chạy không
-# def is_streamlit_running():
-#     for proc in psutil.process_iter(attrs=['pid', 'name', 'cmdline']):
-#         try:
-#             # Kiểm tra nếu tiến trình là Streamlit
-#             if isinstance(proc.info['cmdline'], list) and 'streamlit' in ' '.join(proc.info['cmdline']):
-#                 return True
-#         except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
-#             pass
-#     return False
+    # Ghép các ảnh lại thành một ảnh dài
+    final_image = Image.new('RGB', (images[0].width, total_height), (255, 255, 255))
+    y_offset = 0
+    for img in images:
+        final_image.paste(img, (0, y_offset))
+        y_offset += img.height
 
-# # Hàm chạy Streamlit
-# def run_streamlit():
-#     # Kiểm tra xem Streamlit có đang chạy không
-#     if not is_streamlit_running():
-#         print("Streamlit is not running, starting it...")
-#         subprocess.Popen(
-#             ["python", "-m", "streamlit", "run", r"C:\Users\HOANG ANH\AFFINA - Sale Analyst\Official Work\Auto report\testgit.py"],
-#             shell=True
-#         )
-#         time.sleep(5)  # Đợi một chút để đảm bảo Streamlit đã khởi động xong
-#         # Mở trình duyệt sau khi Streamlit đã khởi động
-#     else:
-#         print("Streamlit is already running!")
+    # Lưu ảnh ghép lại
+    final_image.save("streamlit_full_page.png")
 
-# # Gọi hàm dừng Streamlit trước khi bắt đầu mới
-# stop_streamlit()
+# Hàm tạo PDF từ ảnh
+def create_pdf_from_image():
+    pdf_file = "streamlit_output.pdf"
+    c = canvas.Canvas(pdf_file, pagesize=letter)
 
-# # Chạy ứng dụng Streamlit
-# if __name__ == "__main__":
-#     run_streamlit()
-
-
-# columns = combined_df.columns.tolist()
-
-# # Tạo checklist với tùy chọn "Chọn tất cả"
-# selected_columns = st.multiselect(
-#     "Chọn cột để hiển thị:",
-#     options=["Chọn tất cả","Nhóm khách hàng","Nhóm quyền lợi","Cơ sở y tế"],
-#     default = "Nhóm khách hàng"
-# )
+    # Thêm ảnh vào PDF
+    c.drawImage("streamlit_full_page.png", 50, 50, width=500, height=800)  # Điều chỉnh kích thước nếu cần
+    c.save()
 
 
 st.markdown("""
@@ -336,6 +205,9 @@ with col4:
         st.session_state.selected_columns = "Tất cả"
     if st.button("Tất cả và tắt chart"):
         st.session_state.selected_columns = "Tất cả và tắt chart"
+# with col5:
+#     if st.button('Export to PDF'):
+#         st.session_state.selected_columns = 'Export to PDF'
 
 # Kiểm tra nếu người dùng chọn "Chọn tất cả"
 if "Chọn tất cả" in st.session_state.selected_columns:
@@ -354,11 +226,19 @@ elif st.session_state.selected_columns == "Tất cả":
     lua_chon = "Tất cả"
 elif st.session_state.selected_columns == "Tất cả và tắt chart":
     lua_chon = "Tất cả và tắt chart"
+# elif st.session_state.selected_columns == "Export to PDF":
+#     lua_chon = "Export to PDF"
 else:
     st.write('')
 
+# if lua_chon == "Export to PDF":
+#     capture_screenshot()
+#     create_pdf_from_image()
+#     st.success("Đã tạo file PDF thành công!")
+#     st.download_button("Tải xuống PDF", "streamlit_output.pdf", file_name="streamlit_output.pdf", mime="application/pdf")
+
 # Kiểm tra lựa chọn phân tích
-if lua_chon != '' and lua_chon != 'Tất cả' and lua_chon != 'Tất cả và tắt chart':
+if lua_chon != '' and lua_chon != 'Tất cả' and lua_chon != 'Tất cả và tắt chart' and lua_chon != 'Export to PDF':
     st.write('')
     st.write('')
     st.markdown(f"<h3 style='text-align: center;'>Bồi thường theo {lua_chon.lower()}</h3>", unsafe_allow_html=True)
@@ -382,17 +262,16 @@ if lua_chon != '' and lua_chon != 'Tất cả' and lua_chon != 'Tất cả và t
         # group.loc['Total'] = total_row
         # def format_number(x):
         #     return "{:,.0f}".format(x)
-        
+        group_display = group.copy()
         
         
         #Format số
         
         def format_number(x):
             return "{:,.0f}".format(x)
-
-        # group['Số tiền yêu cầu được bồi thường'] = group['Số tiền yêu cầu được bồi thường'].apply(format_number)
-        # group['Số tiền được bồi thường'] = group['Số tiền được bồi thường'].apply(format_number)
-        # group['Số tiền bồi thường trung bình/người'] = group['Số tiền bồi thường trung bình/người'].apply(format_number)
+        group_display['Số tiền yêu cầu được bồi thường'] = group_display['Số tiền yêu cầu được bồi thường'].apply(format_number)
+        group_display['Số tiền được bồi thường'] = group_display['Số tiền được bồi thường'].apply(format_number)
+        group_display['Số tiền bồi thường trung bình/người'] = group_display['Số tiền bồi thường trung bình/người'].apply(format_number)
         
         #Đổi màu bảng
         def style_table(df):
@@ -412,7 +291,7 @@ if lua_chon != '' and lua_chon != 'Tất cả' and lua_chon != 'Tất cả và t
             return styled_df
 
         # Hiển thị DataFrame đã trang trí trong Streamlit, với độ cao cuộn
-        st.dataframe(style_table(group), height=250)
+        st.dataframe(style_table(group_display), height=250)
 
     # Lựa chọn biểu đồ
     col_chart1, col_chart2,col_chart3 = st.columns(3)
@@ -502,7 +381,17 @@ elif lua_chon == 'Tất cả' :
         GROUP BY "{option}"
     """
         ).df()
-
+        group_display = group.copy()
+        
+        
+        #Format số
+        
+        def format_number(x):
+            return "{:,.0f}".format(x)
+        group_display['Số tiền yêu cầu được bồi thường'] = group_display['Số tiền yêu cầu được bồi thường'].apply(format_number)
+        group_display['Số tiền được bồi thường'] = group_display['Số tiền được bồi thường'].apply(format_number)
+        group_display['Số tiền bồi thường trung bình/người'] = group_display['Số tiền bồi thường trung bình/người'].apply(format_number)
+        
         # Hàm để trang trí bảng
         def style_table(df):
             # Màu sắc cho hàng header
@@ -528,7 +417,7 @@ elif lua_chon == 'Tất cả' :
             </style>
             """, unsafe_allow_html=True)
         # Hiển thị DataFrame đã trang trí trong Streamlit, với độ cao cuộn
-        st.dataframe(style_table(group), height=250)
+        st.dataframe(style_table(group_display), height=250)
 
         # Hiển thị 2 biểu đồ pie
         col_pie_chart1, col_pie_chart2 = st.columns(2)
@@ -550,7 +439,6 @@ elif lua_chon == 'Tất cả' :
         with col_pie_chart2:
             pie_chart2 = px.pie(top_5_amount, names=option, values="Số tiền được bồi thường", title=f'Số tiền đã bồi thường theo {ten_bang}')
             st.plotly_chart(pie_chart2)
-    st.write("Đang chạy nhánh 'Tất cả'")
 elif lua_chon == 'Tất cả và tắt chart':
     full_option = ["Nhóm", "Nhóm quyền lợi", "Cơ sở y tế", "Nhóm bệnh"]
     ten_bang = ''
@@ -583,7 +471,16 @@ elif lua_chon == 'Tất cả và tắt chart':
         GROUP BY "{option}"
     """
         ).df()
-
+        group_display = group.copy()
+        
+        
+        #Format số
+        
+        def format_number(x):
+            return "{:,.0f}".format(x)
+        group_display['Số tiền yêu cầu được bồi thường'] = group_display['Số tiền yêu cầu được bồi thường'].apply(format_number)
+        group_display['Số tiền được bồi thường'] = group_display['Số tiền được bồi thường'].apply(format_number)
+        group_display['Số tiền bồi thường trung bình/người'] = group_display['Số tiền bồi thường trung bình/người'].apply(format_number)
         # Hàm để trang trí bảng
         def style_table(df):
             # Màu sắc cho hàng header
@@ -598,8 +495,7 @@ elif lua_chon == 'Tất cả và tắt chart':
             
             styled_df = styled_df.apply(row_style, axis=1)  # Áp dụng màu cho từng hàng
             return styled_df
-
         # Hiển thị DataFrame đã trang trí trong Streamlit, với độ cao cuộn
-        st.dataframe(style_table(group), height=250)
+        st.dataframe(style_table(group_display), height=250)
 else:
     st.header('CHỌN GIÁ TRỊ MUỐN PHÂN TÍCH')
