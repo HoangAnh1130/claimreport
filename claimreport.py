@@ -3,6 +3,7 @@ import pandas as pd
 import plotly.express as px
 # import plotly.graph_objects as go
 import streamlit as st
+from datetime import datetime
 # import subprocess
 # import webbrowser
 # import psutil 
@@ -35,467 +36,241 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
+
+with st.sidebar:
+    st.header("UPLOAD YOUR FILE")
+    uploaded_files = st.file_uploader("Choose files", accept_multiple_files=True, type=["csv", "xlsx", "xls"])
+    if not uploaded_files:
+        st.info("Upload files", icon="ℹ️")
+        st.stop()
+
+    #######################################
+    # DATA LOADING
+    #######################################
+
+    @st.cache_data
+    def load_data(file):
+        if file.name.endswith(".xlsx"):
+            return pd.read_excel(file)
+        else:
+            st.error(f"Unsupported file type: {file.name}")
+            return None
+    st.title("Tiêu chí phân tích")
+    
+    if "active_group" not in st.session_state:
+        st.session_state["active_group"] = "group_1"
+
+# Tạo radio button để chọn nhóm
+    selected_group = st.radio(
+        "Chọn nhóm báo cáo:",
+        ["Báo cáo bồi thường", "Báo cáo y khoa/Nhân khẩu học"],
+        index=0 if st.session_state["active_group"] == "group_1" else 1
+    )
+
+    # Cập nhật trạng thái nhóm được chọn
+    if selected_group == "Báo cáo bồi thường":
+        st.session_state["active_group"] = "group_1"
+    else:
+        st.session_state["active_group"] = "group_2"
+
+    # Hiển thị selectbox tương ứng với nhóm đã chọn
+    if st.session_state["active_group"] == "group_1":
+        st.session_state["selected_option_group1"] = st.selectbox(
+            "Báo cáo bồi thường",
+            ["Báo cáo tỉ lệ bồi thường", "Báo cáo loại hình bồi thường", "Báo cáo theo quyền lợi","Báo cáo theo chi nhánh/Tập đoàn"],
+            index=st.session_state.get("selected_option_group1_index", 0)
+        )
+        # Lưu lại lựa chọn
+        st.session_state["selected_option_group1_index"] = ["Báo cáo tỉ lệ bồi thường", "Báo cáo loại hình bồi thường", "Báo cáo theo quyền lợi","Báo cáo theo chi nhánh/Tập đoàn"].index(st.session_state["selected_option_group1"])
+        # st.write(f"Bạn đã chọn: **{st.session_state['selected_option_group1']}**")
+
+    elif st.session_state["active_group"] == "group_2":
+        st.session_state["selected_option_group2"] = st.selectbox(
+            "Báo cáo y khoa/Nhân khẩu học",
+            ["Báo cáo nhóm bệnh", "Báo cáo cơ sở y tế","Báo cáo độ tuổi","Báo cáo giới tính"],
+            index=st.session_state.get("selected_option_group2_index", 0)
+        )
+        # Lưu lại lựa chọn
+        st.session_state["selected_option_group2_index"] = ["Báo cáo nhóm bệnh", "Báo cáo cơ sở y tế","Báo cáo độ tuổi","Báo cáo giới tính"].index(st.session_state["selected_option_group2"])
+        # st.write(f"Bạn đã chọn: **{st.session_state['selected_option_group2']}**")
+        
+lua_chon = ''
+if st.session_state["active_group"] == "group_1":
+    if st.session_state['selected_option_group1'] == "Báo cáo tỉ lệ bồi thường":
+        lua_chon = 'Nhóm khách hàng'
+    elif st.session_state['selected_option_group1'] == "Báo cáo loại hình bồi thường":
+        lua_chon = 'Loại hình bồi thường'
+    elif st.session_state['selected_option_group1'] == "Báo cáo theo quyền lợi":
+        lua_chon = 'Nhóm quyền lợi'
+    elif st.session_state['selected_option_group1'] == "Báo cáo theo chi nhánh/Tập đoàn":
+        lua_chon = 'Đơn vị tham gia BH'
+elif st.session_state["active_group"] == "group_2":
+    if st.session_state['selected_option_group2'] == "Báo cáo nhóm bệnh":
+        lua_chon = 'Nhóm bệnh'
+    elif st.session_state['selected_option_group2'] == "Báo cáo cơ sở y tế":
+        lua_chon = 'Cơ sở y tế'
+    elif st.session_state['selected_option_group2'] == "Báo cáo độ tuổi":
+        lua_chon = 'Tuổi'
+    elif st.session_state['selected_option_group2'] == "Báo cáo giới tính":
+        lua_chon = 'Giới tính'
+        
+else:
+    st.write("Vui lòng chọn nhóm phân tích")
+  
 # Hiển thị tiêu đề
-st.header("UPLOAD YOUR FILE")
-uploaded_files = st.file_uploader("Choose files", accept_multiple_files=True, type=["csv", "xlsx", "xls"])
 st.markdown('<div class="title">CLAIM REPORT</div>', unsafe_allow_html=True)
 st.title('')
-if not uploaded_files:
-    st.info("Upload files", icon="ℹ️")
-    st.stop()
-
-#######################################
-# DATA LOADING
-#######################################
-
-@st.cache_data
-def load_data(file):
-    if file.name.endswith(".xlsx"):
-        return pd.read_excel(file)
-    else:
-        st.error(f"Unsupported file type: {file.name}")
-        return None
 
 # Load each file and display its data
 dataframes = []
-
+#df claim chungchung
 for uploaded_file in uploaded_files:
     df = load_data(uploaded_file)
     
-    # Kiểm tra tên file và thực hiện tác vụ riêng
     if df is not None:
-        if "leapstack" in uploaded_file.name.lower():
-            leapstack_desired_columns = ['Insured No. ','Insured Type','Accurate Diagnosis', 'Medical Expense ','Reimbursement','Excluded','Claim Source','Treatment Type']
-            df_leapstack_cleaned = df[leapstack_desired_columns]
-            df_leapstack_cleaned.columns = ['Insured ID','Nhóm', 'Nhóm bệnh', 'Yêu cầu bồi thường', 'Đã được bồi thường','Chênh lệch','Cơ sở y tế','Nhóm quyền lợi']
-            df_leapstack_cleaned = df_leapstack_cleaned.reset_index(drop=True)
-            dataframes.append(df_leapstack_cleaned)  
-        elif "baoviet" in uploaded_file.name.lower():
-            baoviet_desired_columns = ['Số GCNBH',"Thuộc Nhóm", 'Loại bệnh', 'Số tiền yêu cầu bồi thường (VND)','Tổng số tiền bồi thường (VND)','Chệnh lệch số tiền YCBT và STBT','Địa diểm tổn thất','Nguyên nhân']
-            df_baoviet_cleaned = df[baoviet_desired_columns]
-            df_baoviet_cleaned.columns = ['Insured ID','Nhóm', 'Nhóm bệnh', 'Yêu cầu bồi thường', 'Đã được bồi thường','Chênh lệch','Cơ sở y tế','Nhóm quyền lợi']
-            df_baoviet_cleaned = df_baoviet_cleaned.reset_index(drop=True)
-            dataframes.append(df_baoviet_cleaned)  
-        elif "fullerton" in uploaded_file.name.lower():
-            fullerton_desired_columns = ['Insured ID',"Relation", 'Chan doan benh', 'Request amount','Claim paid amount','Rejected amount - paid case','Medical providers','Beneficiary type']
+        if "fullerton" in uploaded_file.name.lower():
+            df['Insured ID'] = df['Insured ID'].astype(str)
+            fullerton_desired_columns = ['Insured ID',"Relation", 'Chan doan benh', 'Request amount','Claim amount','Rejected amount - paid case','Medical providers','Beneficiary type','Reject reasons','Client name','Policy effective date','Type of claim submit','Gender','DOB']
             df_fullerton_cleaned = df[fullerton_desired_columns]
-            df_fullerton_cleaned.columns = ['Insured ID','Nhóm', 'Nhóm bệnh', 'Yêu cầu bồi thường', 'Đã được bồi thường','Chênh lệch','Cơ sở y tế','Nhóm quyền lợi']
+            df_fullerton_cleaned.columns = ['Insured ID','Nhóm khách hàng', 'Nhóm bệnh', 'Số tiền yêu cầu bồi thường', 'Số tiền đã được bồi thường','Chênh lệch','Cơ sở y tế','Nhóm quyền lợi','Lý do từ chối','Đơn vị tham gia BH','Ngày hiệu lực','Loại hình bồi thường','Giới tính','Ngày sinh']
             df_fullerton_cleaned = df_fullerton_cleaned.reset_index(drop=True)
-            dataframes.append(df_fullerton_cleaned)  
-        elif "pvi" in uploaded_file.name.lower():
-            pvi_desired_columns = ["Đối tượng bảo hiểm", 'Nhóm bệnh', 'Số tiền yêu cầu BT',"Số tiền bồi thường (100%)",'Số tiền từ chối BT','Cơ sở y tế','Nhóm quyền lợi']
-            df_pvi_cleaned = df[pvi_desired_columns]
-            df_pvi_cleaned.columns = ['Insured ID','Nhóm', 'Nhóm bệnh', 'Yêu cầu bồi thường', 'Đã được bồi thường','Chênh lệch','Cơ sở y tế','Nhóm quyền lợi']
-            df_pvi_cleaned = df_pvi_cleaned.drop(index=[0, 1]).reset_index(drop=True)
-            dataframes.append(df_pvi_cleaned) 
-        elif "pti" in uploaded_file.name.lower():
-            df['Chênh lệch'] = df['Số tiền yêu cầu bồi thường'] - df["Tổng số tiền bồi thường"]
-            pti_desired_columns = ['Tên bệnh nhân',"Nhóm", 'Chẩn đoán', 'Số tiền yêu cầu bồi thường',"Tổng số tiền bồi thường",'Chênh lệch','Tên bệnh viện','Phân loại bồi thường']
-            df_pti_cleaned = df[pti_desired_columns]
-            df_pti_cleaned.columns = ['Insured ID','Nhóm', 'Nhóm bệnh', 'Yêu cầu bồi thường', 'Đã được bồi thường','Chênh lệch','Cơ sở y tế','Nhóm quyền lợi']
-            df_pti_cleaned = df_pti_cleaned.drop(index=[0]).reset_index(drop=True)
-            dataframes.append(df_pti_cleaned)  
+            df_fullerton_cleaned['Ngày sinh'] = pd.to_datetime(df_fullerton_cleaned['Ngày sinh'], errors='coerce')
+            ngay_hom_nay = datetime.now()
+            df_fullerton_cleaned['Tuổi'] = ((ngay_hom_nay -df_fullerton_cleaned['Ngày sinh']).dt.days)/365
+            df_fullerton_cleaned['Tuổi'] = df_fullerton_cleaned['Tuổi'].astype(int)
+            dataframes.append(df_fullerton_cleaned) 
+        elif 'hopdongbaohiem' in uploaded_file.name.lower():
+            df_hopdongbaohiem = df 
+        # elif 'nhansu' in uploaded_file.name.lower():
+        #     df = df['Insured ID','Nhóm', 'Nhóm bệnh', 'Yêu cầu bồi thường', 'Đã được bồi thường','Chênh lệch','Cơ sở y tế','Nhóm quyền lợi','Lý do từ chối','Tên công ty']
+        # else:
+        #     # File không hợp lệ, xóa nó khỏi danh sách và cảnh báo
+        #     st.error(f"Invalid file name: {uploaded_file.name}. This file does not match expected naming conventions.")
+        #     uploaded_files.remove(uploaded_file)  # Xóa file không hợp lệ khỏi danh sách
+
+if lua_chon in  ['Nhóm khách hàng','Loại hình bồi thường','Nhóm quyền lợi','Đơn vị tham gia BH','Nhóm bệnh','Cơ sở y tế','Giới tính','Tuổi']:
+    option = lua_chon
+    group = duckdb.sql(
+        f"""
+    SELECT 
+        "{option}",
+        count(distinct "Insured ID") as "Số người yêu cầu bồi thường",
+        count("Insured ID") as "Số hồ sơ bồi thường",
+        concat(round(count("Insured ID")*100 /count(*),1),'%') as "%Trường hợp",
+        ROUND(SUM("Số tiền yêu cầu bồi thường")) AS "Số tiền yêu cầu bồi thường",
+        ROUND(SUM("Số tiền đã được bồi thường")) AS "Số tiền được bồi thường",
+        ROUND(SUM("Số tiền đã được bồi thường")/count(distinct "Insured ID")) as "Số tiền bồi thường trung bình/người",
+        concat(round(SUM("Số tiền đã được bồi thường")*100/SUM("Số tiền yêu cầu bồi thường"),1),'%') as "Tỉ lệ thành công"
+        -- datediff('day',STRPTIME(CAST("Ngày hiệu lực" AS VARCHAR), '%Y-%m-%d %H:%M:%S'), now()) as "Số ngày đã tham gia"
+    FROM df_fullerton_cleaned
+    GROUP BY "{option}","Ngày hiệu lực"
+"""
+    ).df()
+
+    nhansu_file = None 
+    for file in uploaded_files:
+        if 'nhansu' in file.name.lower():  # Kiểm tra tên tệp có chứa 'nhansu'
+            nhansu_file = file
+            break
+    if "fullerton" in uploaded_file.name.lower():    
+        if nhansu_file:
+            nhansu_df = pd.read_excel(nhansu_file)
+            result = pd.merge(group, nhansu_df, how='right', on='Insure ID')
+            count = result.groupby('Insure ID')['Insure ID'].count().reset_index(name='Số người được bảo hiểm')
+            group.insert(1, 'Số người được bảo hiểm', count.pop('Số người được bảo hiểm'))
+            a = group["Số người yêu cầu bồi thường"] / group['Số người được bảo hiểm']
+            group.insert(3, 'Tỉ lệ yêu cầu bồi thường', a )
         else:
-            # File không hợp lệ, xóa nó khỏi danh sách và cảnh báo
-            st.error(f"Invalid file name: {uploaded_file.name}. This file does not match expected naming conventions.")
-            uploaded_files.remove(uploaded_file)  # Xóa file không hợp lệ khỏi danh sách
-
-# Nếu cần ghép tất cả DataFrames lại với nhau
-if dataframes:
-    combined_df = pd.concat(dataframes, ignore_index=True)
-else:
-    combined_df = pd.DataFrame(columns=['Insured ID','Nhóm', 'Nhóm bệnh', 'Yêu cầu bồi thường', 'Đã được bồi thường','Chênh lệch','Cơ sở y tế','Nhóm quyền lợi'])
-
-def capture_screenshot():
-    # Tùy chọn cho Selenium
-    options = Options()
-    options.headless = True  # Không mở cửa sổ trình duyệt
-    driver = webdriver.Chrome(options=options)
-
-    # Tải trang Streamlit
-    driver.get("http://localhost:8501")  # Đảm bảo bạn đã chạy Streamlit ở địa chỉ này
-
-    # Chờ trang load hoàn toàn
-    time.sleep(5)
-
-    # Lấy chiều cao của trang
-    total_height = driver.execute_script("return document.body.scrollHeight")
-    window_height = driver.execute_script("return window.innerHeight")
-
-    # Bắt đầu chụp nhiều phần của trang
-    screenshot_count = total_height // window_height + 1
-    images = []
-
-    for i in range(screenshot_count):
-        # Cuộn trang để chụp
-        driver.execute_script(f"window.scrollTo(0, {i * window_height});")
-        time.sleep(1)  # Đợi một chút để nội dung kịp render
-
-        # Chụp ảnh màn hình
-        screenshot_path = f"screenshot_{i}.png"
-        driver.save_screenshot(screenshot_path)
-        images.append(Image.open(screenshot_path))
-
-    driver.quit()
-
-    # Ghép các ảnh lại thành một ảnh dài
-    final_image = Image.new('RGB', (images[0].width, total_height), (255, 255, 255))
-    y_offset = 0
-    for img in images:
-        final_image.paste(img, (0, y_offset))
-        y_offset += img.height
-
-    # Lưu ảnh ghép lại
-    final_image.save("streamlit_full_page.png")
-
-# Hàm tạo PDF từ ảnh
-def create_pdf_from_image():
-    pdf_file = "streamlit_output.pdf"
-    c = canvas.Canvas(pdf_file, pagesize=letter)
-
-    # Thêm ảnh vào PDF
-    c.drawImage("streamlit_full_page.png", 50, 50, width=500, height=800)  # Điều chỉnh kích thước nếu cần
-    c.save()
-
-
-st.markdown("""
-    <style>
-    .stButton>button {
-        background-color: #70C2B4;  /* Màu nền button */
-        color: white;               /* Màu chữ */
-        border: none;
-        padding: 10px 20px;
-        font-size: 16px;
-        border-radius: 8px;
-    }
-    .stButton>button:hover {
-        background-color: #5a9f92;  /* Màu nền khi hover */
-    }
-    </style>
-""", unsafe_allow_html=True)
-
-# Khởi tạo giá trị mặc định cho session_state nếu chưa có
-if 'selected_columns' not in st.session_state:
-    st.session_state.selected_columns = ''
-if 'chon_chart' not in st.session_state:
-    st.session_state.chon_chart = 'BAR CHART'
-
-options = ["", "Nhóm khách hàng", "Nhóm quyền lợi", "Cơ sở y tế","Nhóm bệnh"]
-lua_chon = ''
-
-# Tạo các cột cho các nút radio
-col1, col2, col3,col4,col5 = st.columns(5)
-
-with col1:
-    st.write("##### CHỌN DỮ LIỆU MUỐN PHÂN TÍCH:")
-
-with col2:
-    if st.button("Nhóm khách hàng"):
-        st.session_state.selected_columns = "Nhóm khách hàng"
-    if st.button("Nhóm quyền lợi"):
-        st.session_state.selected_columns = "Nhóm quyền lợi"
-
-with col3:
-    if st.button("Cơ sở y tế"):
-        st.session_state.selected_columns = "Cơ sở y tế"
-    if st.button("Nhóm bệnh"):
-        st.session_state.selected_columns = "Nhóm bệnh"
-with col4:
-    if st.button("Tất cả"):
-        st.session_state.selected_columns = "Tất cả"
-    if st.button("Tất cả và tắt chart"):
-        st.session_state.selected_columns = "Tất cả và tắt chart"
-# with col5:
-#     if st.button('Export to PDF'):
-#         st.session_state.selected_columns = 'Export to PDF'
-
-# Kiểm tra nếu người dùng chọn "Chọn tất cả"
-if "Chọn tất cả" in st.session_state.selected_columns:
-    # Hiển thị toàn bộ dữ liệu
-    st.write("Hiển thị toàn bộ dữ liệu:")
-    st.dataframe(combined_df)
-elif "Nhóm khách hàng" in st.session_state.selected_columns:
-    lua_chon = "Nhóm"
-elif "Nhóm quyền lợi" in st.session_state.selected_columns:
-    lua_chon = "Nhóm quyền lợi"
-elif "Cơ sở y tế" in st.session_state.selected_columns:
-    lua_chon = "Cơ sở y tế"
-elif "Nhóm bệnh" in st.session_state.selected_columns:
-    lua_chon = "Nhóm bệnh"
-elif st.session_state.selected_columns == "Tất cả":
-    lua_chon = "Tất cả"
-elif st.session_state.selected_columns == "Tất cả và tắt chart":
-    lua_chon = "Tất cả và tắt chart"
-# elif st.session_state.selected_columns == "Export to PDF":
-#     lua_chon = "Export to PDF"
-else:
-    st.write('')
-
-# if lua_chon == "Export to PDF":
-#     capture_screenshot()
-#     create_pdf_from_image()
-#     st.success("Đã tạo file PDF thành công!")
-#     st.download_button("Tải xuống PDF", "streamlit_output.pdf", file_name="streamlit_output.pdf", mime="application/pdf")
-
-# Kiểm tra lựa chọn phân tích
-if lua_chon != '' and lua_chon != 'Tất cả' and lua_chon != 'Tất cả và tắt chart' and lua_chon != 'Export to PDF':
-    st.write('')
-    st.write('')
-    st.markdown(f"<h3 style='text-align: center;'>Bồi thường theo {lua_chon.lower()}</h3>", unsafe_allow_html=True)
-    with st.expander("Bảng thống kê"):
-        group = duckdb.sql(
-            f"""
-        SELECT 
-            "{lua_chon}",
-            count(distinct "Insured ID") as "Số người yêu cầu bồi thường",
-            count("Insured ID") as "Số hồ sơ bồi thường",
-            ROUND(SUM("Yêu cầu bồi thường")) AS "Số tiền yêu cầu được bồi thường",
-            ROUND(SUM("Đã được bồi thường")) AS "Số tiền được bồi thường",
-            ROUND(SUM("Đã được bồi thường")/count(distinct "Insured ID")) as "Số tiền bồi thường trung bình/người",
-            concat(round(SUM("Đã được bồi thường")*100/SUM("Yêu cầu bồi thường"),1),'%') as "Tỉ lệ thành công"
-        FROM combined_df
-        GROUP BY "{lua_chon}"
-    """
-        ).df()
-        # df_numerical = group.drop(columns=['Tỉ lệ thành công',f"{lua_chon}"])
-        # total_row = df_numerical.sum()
-        # group.loc['Total'] = total_row
-        # def format_number(x):
-        #     return "{:,.0f}".format(x)
-        group_display = group.copy()
-        
-        
-        #Format số
-        
-        def format_number(x):
-            return "{:,.0f}".format(x)
-        group_display['Số tiền yêu cầu được bồi thường'] = group_display['Số tiền yêu cầu được bồi thường'].apply(format_number)
-        group_display['Số tiền được bồi thường'] = group_display['Số tiền được bồi thường'].apply(format_number)
-        group_display['Số tiền bồi thường trung bình/người'] = group_display['Số tiền bồi thường trung bình/người'].apply(format_number)
-        
-        #Đổi màu bảng
-        def style_table(df):
-            # Màu sắc cho hàng header
-            styled_df = df.style.set_table_styles([
-                {'selector': 'thead th', 'props': [('background-color', '#F1798B'), ('color', 'black')]},  # Màu hồng cho header
-            ])
+            group.insert(1, 'Số người được bảo hiểm', None)
+            group.insert(3, 'Tỉ lệ yêu cầu bồi thường', None)
+        hopdongbaohiem = None 
+        for file in uploaded_files:
+            if 'hopdongbaohiem' in file.name.lower():  # Kiểm tra tên tệp có chứa 'nhansu'
+                hopdongbaohiem_file = file
+                break
+        if hopdongbaohiem_file:   
+            hopdongbaohiem_df = pd.read_excel(hopdongbaohiem_file)
+            sum_tien_da_boi_thuong = df_fullerton_cleaned.groupby('Đơn vị tham gia BH')['Số tiền đã được bồi thường'].sum().reset_index(name='Tổng số tiền đã bồi thường')
+            tencongty = df_fullerton_cleaned['Đơn vị tham gia BH'][1]
+            ngay_intable = hopdongbaohiem_df['Ngày bắt đầu'].loc[hopdongbaohiem_df['Tên công ty'] == tencongty]
+            ngay_hieu_luc = pd.to_datetime(ngay_intable.iloc[0])
+            ngay_lam_bao_cao = datetime.now()
+            so_ngay_tham_gia_BH = (ngay_lam_bao_cao-ngay_hieu_luc).days
+            tongphibaohiem = ngay_intable = hopdongbaohiem_df['Tổng phí bảo hiểm'].loc[hopdongbaohiem_df['Tên công ty'] == tencongty]
+            tongphibaohiem = float(tongphibaohiem)
+            so_ngay_tham_gia_BH = float(so_ngay_tham_gia_BH)
+            group['Số tiền được bồi thường'] = group['Số tiền được bồi thường'].astype(float)
+            group['Tỉ lệ loss thực tế'] = (group['Số tiền được bồi thường']*100*so_ngay_tham_gia_BH)/((365)*tongphibaohiem)
+            group['Tỉ lệ loss ước tính (14m)'] = (group['Số tiền được bồi thường']*100*so_ngay_tham_gia_BH)/((365+30*2)*tongphibaohiem)
             
-            # Màu sắc luân phiên cho các hàng còn lại
-            def row_style(row):
-                if row.name % 2 == 0:
-                    return ['background-color: #6C7EE1'] * len(row)  # Màu vàng nhạt cho hàng chẵn
-                else:
-                    return ['background-color: #FFC4A4'] * len(row)  # Màu xanh biển đậm cho hàng lẻ
+            # df_tinh_toan['Tỉ lệ loss thực tế'] = (df_tinh_toan['Số tiền được bồi thường'] * in so_ngay_tham_gia_BH / 365 * tongphibaohiem * 100)
+            # df_tinh_toan['Tỉ lệ loss ước tính (14m)'] = (df_tinh_toan['Số tiền được bồi thường'] * so_ngay_tham_gia_BH / (365 + 30 * 2) * tongphibaohiem * 100)
+            # group = pd.merge(group, df_tinh_toan[[f'{option}', 'Tỉ lệ loss thực tế', 'Tỉ lệ loss ước tính (14m)']], on=f'{option}', how='left')
             
-            styled_df = styled_df.apply(row_style, axis=1)  # Áp dụng màu cho từng hàng
-            return styled_df
+            
+            
+    group_display = group.copy()
+    def format_number(x):
+        return "{:,.0f}".format(x)
+    def format_percentage(value):
+        return "{:.2f}%".format(float(value)).replace('.', ',')
+    group_display['Tỉ lệ loss thực tế'] =  group_display['Tỉ lệ loss thực tế'].apply(format_percentage)
+    group_display['Tỉ lệ loss ước tính (14m)'] =  group_display['Tỉ lệ loss ước tính (14m)'].apply(format_percentage)
+    group_display['Số tiền yêu cầu bồi thường'] = group_display['Số tiền yêu cầu bồi thường'].apply(format_number)
+    group_display['Số tiền được bồi thường'] = group_display['Số tiền được bồi thường'].apply(format_number)
+    group_display['Số tiền bồi thường trung bình/người'] = group_display['Số tiền bồi thường trung bình/người'].apply(format_number)
 
-        # Hiển thị DataFrame đã trang trí trong Streamlit, với độ cao cuộn
-        st.dataframe(style_table(group_display), height=250)
+    def style_table(df):
+        styles = [
+            {'selector': 'thead th',
+            'props': [('background-color', '#330099'),  # Màu xanh dương đậm
+                    ('color', 'white'),              # Chữ trắng
+                    ('font-weight', 'bold'),         # Chữ in đậm
+                    ('text-align', 'center')]}       # Chữ căn giữa
+            ]
+    
+    # Áp dụng màu nền xen kẽ cho các dòng dữ liệu
+        def alternating_row_colors(row):
+            if row.name % 2 == 0:
+                return ['background-color: None'] * len(row)  # Hàng chẵn: trắng
+            else:
+                return ['background-color: None'] * len(row)  # Hàng lẻ: tím nhạt
 
-    # Lựa chọn biểu đồ
-    col_chart1, col_chart2,col_chart3 = st.columns(3)
-    with col_chart1:
-        if st.button("BAR CHART"):
-            st.session_state.chon_chart = "BAR CHART"
-    with col_chart2:
-        if st.button("PIE CHART"):
-            st.session_state.chon_chart = "PIE CHART"
-    with col_chart3:
-        if st.button("TẮT CHART"):
-            st.session_state.chon_chart = ""
-    # Vẽ biểu đồ theo lựa chọn
-    if st.session_state.chon_chart == "BAR CHART":
-        group = group.sort_values(by='Số tiền được bồi thường', ascending=False)
-        bar_chart = px.bar(
-            group,
-            x=f"{lua_chon}",
-            y="Số tiền được bồi thường",
-            title="Số tiền đã bồi thường theo nhóm quyền lợi",
-            text="Số tiền được bồi thường",  # Nhãn giá trị
-            color=f"{lua_chon}",
+    # Kết hợp styles
+        styled_df = df.style.set_table_styles(styles) \
+                            .apply(alternating_row_colors, axis=1)
+    
+        st.markdown(styled_df.to_html(), unsafe_allow_html=True)
+        return styled_df
+    style_table(group_display)
+
+    
+    top_5_case = group.sort_values(by='Số người yêu cầu bồi thường', ascending=False).head(5)
+    top_5_amount = group.sort_values(by='Số tiền được bồi thường', ascending=False).head(5)
+    col_pie_chart1, col_pie_chart2 = st.columns(2)
+    with col_pie_chart1:
+        pie_chart1 = px.pie(top_5_case, names=f'{lua_chon}', values="Số hồ sơ bồi thường", title=f'Số hồ sơ yêu cầu bồi thường theo {lua_chon.lower()}', 
+            color=f'{lua_chon}',  
             color_discrete_map={
-                "Quyền lợi A": "#3A0751",
-                "Quyền lợi B": "#FF5733",
-                "Quyền lợi C": "#33FF57"
-            }  # Tùy chỉnh màu sắc cho từng nhóm
-        )
-
-        # Tùy chỉnh vị trí của nhãn và hiển thị số nguyên trong nhãn
-        bar_chart.update_traces(
-            textposition='outside',  # Nhãn hiển thị bên ngoài cột
-            texttemplate='%{text:,}' # Hiển thị số nguyên trong nhãn
-        )
-        bar_chart.update_layout(
-            height=600  # Bạn có thể điều chỉnh giá trị này tùy theo nhu cầu của bạn
-        )
-        st.plotly_chart(bar_chart)
+                "Dependant": "#3A0751", 
+                "Employee": "#f2c85b"
+            },  # Ánh xạ màu
+            hole=0.6)
+        st.plotly_chart(pie_chart1)
+    with col_pie_chart2:
+        pie_chart2 = px.pie(top_5_amount, names=f'{lua_chon}', values="Số tiền được bồi thường", title=f'Số tiền đã bồi thường theo {lua_chon.lower()}',hole=0.6)
+        st.plotly_chart(pie_chart2)
+#df demographicdemographic
+for uploaded_file in uploaded_files:
+    df = load_data(uploaded_file)
+    if df is not None:
+        if "fullerton" in uploaded_file.name.lower():
+            try:
+                a1 = ['Insured ID','Request amount','Claim amount','Rejected amount - paid case','Gender',"DOB"] 
+                df_fullerton_demo = df[a1]  
+                df_fullerton_demo.columns = ['Insured ID', 'Số tiền yêu cầu bồi thường', 'Số tiền đã được bồi thường','Chênh lệch','Giới tính','Ngày sinh']
+                df_fullerton_demo = df_fullerton_cleaned.reset_index(drop=True)
+            except KeyError as e:
+                print(f"Lỗi: Cột {e} không tồn tại trong bảng.")
+                
     
-    elif st.session_state.chon_chart == "PIE CHART":
-        top_5_case = group.sort_values(by='Số người yêu cầu bồi thường', ascending=False).head(5)
-        top_5_amount = group.sort_values(by='Số tiền được bồi thường', ascending=False).head(5)
-        col_pie_chart1, col_pie_chart2 = st.columns(2)
-        with col_pie_chart1:
-            pie_chart1 = px.pie(top_5_case, names=f'{lua_chon}', values="Số người yêu cầu bồi thường", title=f'Số người yêu cầu bồi thường theo {lua_chon.lower()}', 
-                color=f'{lua_chon}',  
-                color_discrete_map={
-                    "Dependant": "#3A0751", 
-                    "Employee": "#f2c85b"
-                }  # Ánh xạ màu
-            )
-            st.plotly_chart(pie_chart1)
-        with col_pie_chart2:
-            pie_chart2 = px.pie(top_5_amount, names=f'{lua_chon}', values="Số tiền được bồi thường", title=f'Số tiền đã bồi thường theo {lua_chon.lower()}')
-            st.plotly_chart(pie_chart2)
-    elif st.session_state.chon_chart == "":
-        st.write('')
-elif lua_chon == 'Tất cả' :
-    full_option = ["Nhóm", "Nhóm quyền lợi", "Cơ sở y tế", "Nhóm bệnh"]
-    ten_bang = ''
-    
-    # Duyệt qua từng nhóm và hiển thị bảng và biểu đồ
-    for option in full_option:
-        if option == "Nhóm":
-            ten_bang = "Nhóm khách hàng"
-        elif option == "Nhóm quyền lợi":
-            ten_bang = "Nhóm quyền lợi"
-        elif option == "Cơ sở y tế":
-            ten_bang = "Cơ sở y tế"
-        elif option == "Nhóm bệnh":
-            ten_bang = "Nhóm bệnh"
-        
-        st.markdown(f"<h3 style='text-align: center;'>Bồi thường theo {ten_bang.lower()}</h3>", unsafe_allow_html=True)
-        
-        # Truy vấn dữ liệu cho từng nhóm
-        group = duckdb.sql(
-            f"""
-        SELECT 
-            "{option}",
-            count(distinct "Insured ID") as "Số người yêu cầu bồi thường",
-            count("Insured ID") as "Số hồ sơ bồi thường",
-            ROUND(SUM("Yêu cầu bồi thường")) AS "Số tiền yêu cầu được bồi thường",
-            ROUND(SUM("Đã được bồi thường")) AS "Số tiền được bồi thường",
-            ROUND(SUM("Đã được bồi thường")/count(distinct "Insured ID")) as "Số tiền bồi thường trung bình/người",
-            concat(round(SUM("Đã được bồi thường")*100/SUM("Yêu cầu bồi thường"),1),'%') as "Tỉ lệ thành công"
-        FROM combined_df
-        GROUP BY "{option}"
-    """
-        ).df()
-        group_display = group.copy()
-        
-        
-        #Format số
-        
-        def format_number(x):
-            return "{:,.0f}".format(x)
-        group_display['Số tiền yêu cầu được bồi thường'] = group_display['Số tiền yêu cầu được bồi thường'].apply(format_number)
-        group_display['Số tiền được bồi thường'] = group_display['Số tiền được bồi thường'].apply(format_number)
-        group_display['Số tiền bồi thường trung bình/người'] = group_display['Số tiền bồi thường trung bình/người'].apply(format_number)
-        
-        # Hàm để trang trí bảng
-        def style_table(df):
-            # Màu sắc cho hàng header
-            styled_df = df.style.set_table_styles([{'selector': 'thead th', 'props': [('background-color', '#F1798B'), ('color', 'black')]},])
-            
-            # Màu sắc luân phiên cho các hàng còn lại
-            def row_style(row):
-                if row.name % 2 == 0:
-                    return ['background-color: #6C7EE1'] * len(row)  # Màu vàng nhạt cho hàng chẵn
-                else:
-                    return ['background-color: #FFC4A4'] * len(row)  # Màu xanh biển đậm cho hàng lẻ
-            
-            styled_df = styled_df.apply(row_style, axis=1)  # Áp dụng màu cho từng hàng
-            return styled_df
-        # Hiển thị bảng cuộn trong Streamlit với chiều rộng đầy đủ
-        st.markdown(
-            """
-            <style>
-            .streamlit-table {
-                width: 100% !important;
-                overflow-x: auto;
-            }
-            </style>
-            """, unsafe_allow_html=True)
-        # Hiển thị DataFrame đã trang trí trong Streamlit, với độ cao cuộn
-        st.dataframe(style_table(group_display), height=250)
-
-        # Hiển thị 2 biểu đồ pie
-        col_pie_chart1, col_pie_chart2 = st.columns(2)
-
-        # Top 5 dựa trên số người yêu cầu bồi thường
-        top_5_case = group.sort_values(by='Số người yêu cầu bồi thường', ascending=False).head(5)
-        top_5_amount = group.sort_values(by='Số tiền được bồi thường', ascending=False).head(5)
-
-        with col_pie_chart1:
-            pie_chart1 = px.pie(top_5_case, names=option, values="Số người yêu cầu bồi thường", title=f'Số người yêu cầu bồi thường theo {ten_bang}', 
-                color=option,  
-                color_discrete_map={
-                    "Dependant": "#3A0751", 
-                    "Employee": "#f2c85b"
-                }  # Ánh xạ màu
-            )
-            st.plotly_chart(pie_chart1)
-
-        with col_pie_chart2:
-            pie_chart2 = px.pie(top_5_amount, names=option, values="Số tiền được bồi thường", title=f'Số tiền đã bồi thường theo {ten_bang}')
-            st.plotly_chart(pie_chart2)
-elif lua_chon == 'Tất cả và tắt chart':
-    full_option = ["Nhóm", "Nhóm quyền lợi", "Cơ sở y tế", "Nhóm bệnh"]
-    ten_bang = ''
-    
-    # Duyệt qua từng nhóm và hiển thị bảng và biểu đồ
-    for option in full_option:
-        if option == "Nhóm":
-            ten_bang = "Nhóm khách hàng"
-        elif option == "Nhóm quyền lợi":
-            ten_bang = "Nhóm quyền lợi"
-        elif option == "Cơ sở y tế":
-            ten_bang = "Cơ sở y tế"
-        elif option == "Nhóm bệnh":
-            ten_bang = "Nhóm bệnh"
-        
-        st.markdown(f"<h3 style='text-align: center;'>Bồi thường theo {ten_bang.lower()}</h3>", unsafe_allow_html=True)
-        
-        # Truy vấn dữ liệu cho từng nhóm
-        group = duckdb.sql(
-            f"""
-        SELECT 
-            "{option}",
-            count(distinct "Insured ID") as "Số người yêu cầu bồi thường",
-            count("Insured ID") as "Số hồ sơ bồi thường",
-            ROUND(SUM("Yêu cầu bồi thường")) AS "Số tiền yêu cầu được bồi thường",
-            ROUND(SUM("Đã được bồi thường")) AS "Số tiền được bồi thường",
-            ROUND(SUM("Đã được bồi thường")/count(distinct "Insured ID")) as "Số tiền bồi thường trung bình/người",
-            concat(round(SUM("Đã được bồi thường")*100/SUM("Yêu cầu bồi thường"),1),'%') as "Tỉ lệ thành công"
-        FROM combined_df
-        GROUP BY "{option}"
-    """
-        ).df()
-        group_display = group.copy()
-        
-        
-        #Format số
-        
-        def format_number(x):
-            return "{:,.0f}".format(x)
-        group_display['Số tiền yêu cầu được bồi thường'] = group_display['Số tiền yêu cầu được bồi thường'].apply(format_number)
-        group_display['Số tiền được bồi thường'] = group_display['Số tiền được bồi thường'].apply(format_number)
-        group_display['Số tiền bồi thường trung bình/người'] = group_display['Số tiền bồi thường trung bình/người'].apply(format_number)
-        # Hàm để trang trí bảng
-        def style_table(df):
-            # Màu sắc cho hàng header
-            styled_df = df.style.set_table_styles([{'selector': 'thead th', 'props': [('background-color', '#F1798B'), ('color', 'black')]},])
-            
-            # Màu sắc luân phiên cho các hàng còn lại
-            def row_style(row):
-                if row.name % 2 == 0:
-                    return ['background-color: #6C7EE1'] * len(row)  # Màu vàng nhạt cho hàng chẵn
-                else:
-                    return ['background-color: #FFC4A4'] * len(row)  # Màu xanh biển đậm cho hàng lẻ
-            
-            styled_df = styled_df.apply(row_style, axis=1)  # Áp dụng màu cho từng hàng
-            return styled_df
-        # Hiển thị DataFrame đã trang trí trong Streamlit, với độ cao cuộn
-        st.dataframe(style_table(group_display), height=250)
-else:
-    st.header('CHỌN GIÁ TRỊ MUỐN PHÂN TÍCH')
