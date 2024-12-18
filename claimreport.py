@@ -197,7 +197,7 @@ if lua_chon in  ['Nhóm khách hàng','Loại hình bồi thường','Nhóm quy�
             nhansu_df = pd.read_excel(nhansu_file)
             result = pd.merge(group, nhansu_df, how='right', on='Insure ID')
             count = result.groupby('Insure ID')['Insure ID'].count().reset_index(name='Số người được bảo hiểm')
-            group.insert(1, 'Số người được bảo hiểm', count.pop('Số người được bảo hiểm'))
+            group['Số người được bảo hiểm'] = count.pop('Số người được bảo hiểm').values
             a = group["Số người yêu cầu bồi thường"] / group['Số người được bảo hiểm']
             group.insert(3, 'Tỉ lệ yêu cầu bồi thường', a )
         else:
