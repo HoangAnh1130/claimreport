@@ -153,8 +153,7 @@ for uploaded_file in uploaded_files:
             dataframes.append(df_fullerton_cleaned) 
         elif "pvi" in uploaded_file.name.lower():
             df1 = df
-            df1 = df1.drop(index = [0,1])
-            df1.reset_index(drop=True, inplace=True)
+            df1 = df1.drop(index = [0,1])   
             df1 = df1[['Số hồ sơ bồi thường','Đối tượng bảo hiểm','Nhóm bệnh','Số tiền yêu cầu BT','Số tiền bồi thường\n(100%)','Số tiền từ chối BT','Cơ sở y tế','Nhóm quyền lợi','Nguyên nhân từ chối BT',
                     'Đơn vị tham gia BH','Từ ngày','Phương thức khai thác','Tuổi NĐBH']]
             df1.rename(columns={'Số hồ sơ bồi thường': 'Insured ID', 'Đối tượng bảo hiểm':'Nhóm khách hàng','Số tiền yêu cầu BT':'Số tiền yêu cầu bồi thường','Số tiền bồi thường\n(100%)':'Số tiền đã được bồi thường',
@@ -164,7 +163,6 @@ for uploaded_file in uploaded_files:
         elif "pti" in uploaded_file.name.lower():
             df2 = df
             df2 = df2.drop(index = 0)
-            df2.reset_index(drop=True, inplace=True)
             df_filter = df2[['Trợ cấp nghỉ/lương','Tử vong/ Thương tật  vĩnh viễn','Nằm viện điều trị','Nằm viện phẫu thuật','Sinh thường','Sinh mổ và biến chứng thai sản','Điều trị ngoại trú','Điều trị răng','Tử vong do ốm bệnh thai sản']]
             df_filter['Nhóm quyền lợi'] = df_filter.apply(lambda row: ', '.join(row.index[row != 0]), axis=1)
             df2 = pd.concat([df2, df_filter['Nhóm quyền lợi']], axis=1)
