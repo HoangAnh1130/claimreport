@@ -151,6 +151,31 @@ for uploaded_file in uploaded_files:
             })
             
             dataframes.append(df_fullerton_cleaned) 
+        elif "pvi" in uploaded_file.name.lower():
+            df1 = df
+            df1 = df1.drop(index = [0,1])
+            df1.reset_index(drop=True, inplace=True)
+            df1 = df1[['Số hồ sơ bồi thường','Đối tượng bảo hiểm','Nhóm bệnh','Số tiền yêu cầu BT','Số tiền bồi thường\n(100%)','Số tiền từ chối BT','Cơ sở y tế','Nhóm quyền lợi','Nguyên nhân từ chối BT',
+                    'Đơn vị tham gia BH','Từ ngày','Phương thức khai thác','Tuổi NĐBH']]
+            df1.rename(columns={'Số hồ sơ bồi thường': 'Insured ID', 'Đối tượng bảo hiểm':'Nhóm khách hàng','Số tiền yêu cầu BT':'Số tiền yêu cầu bồi thường','Số tiền bồi thường\n(100%)':'Số tiền đã được bồi thường',
+                                'Số tiền từ chối BT':'Chênh lệch','Nguyên nhân từ chối BT':'Lý do từ chối','Từ ngày':'Ngày hiệu lực','Phương thức khai thác':'Loại hình bồi thường','Tuổi NĐBH'  :'Tuổi'}, inplace= True)
+            df1.head(2)
+            dataframes.append(df1) 
+        elif "pti" in uploaded_file.name.lower():
+            df2 = df
+            df2 = df2.drop(index = 0)
+            df2.reset_index(drop=True, inplace=True)
+            df_filter = df2[['Trợ cấp nghỉ/lương','Tử vong/ Thương tật  vĩnh viễn','Nằm viện điều trị','Nằm viện phẫu thuật','Sinh thường','Sinh mổ và biến chứng thai sản','Điều trị ngoại trú','Điều trị răng','Tử vong do ốm bệnh thai sản']]
+            df_filter['Nhóm quyền lợi'] = df_filter.apply(lambda row: ', '.join(row.index[row != 0]), axis=1)
+            df2 = pd.concat([df2, df_filter['Nhóm quyền lợi']], axis=1)
+            df2 = df2[['Số hồ sơ','Nhóm','Mã Bệnh','Số tiền yêu cầu bồi thường','Tổng số tiền bồi thường','Tên bệnh viện','Nhóm quyền lợi','Diễn giải','Tên chủ hợp đồng','Từ','Phân loại hồ sơ','Nam/Nữ','Tuổi']]
+            df2.rename(columns={'Số hồ sơ': 'Insured ID', 'Nhóm': 'Nhóm khách hàng','Mã Bệnh':'Nhóm bệnh','Tổng số tiền bồi thường':'Số tiền đã được bồi thường',
+                                'Tên bệnh viện':'Cơ sở y tế','Diễn giải':'Lý do từ chối','Tên chủ hợp đồng':'Đơn vị tham gia BH','Từ':'Ngày hiệu lực','Phân loại hồ sơ':'Loại hình bồi thường','Nam/Nữ':"Giới tính"}, inplace= True)
+            df2.head()
+            df2["Nhóm khách hàng"] = df2["Nhóm khách hàng"].replace({
+                'NHANVIEN_01': 'Nhân viên'
+            })
+            dataframes.append(df2)
         elif 'hopdongbaohiem' in uploaded_file.name.lower():
             df_hopdongbaohiem = df
         else: 
@@ -188,7 +213,6 @@ if lua_chon in  ['Nhóm khách hàng','Loại hình bồi thường','Nhóm quy�
     ).df()
 
     if lua_chon == "Tuổi":
-        st.write(lua_chon)
         group["Tuổi"] = group["Tuổi"].apply(
             lambda x: f"{int(float(x)):,}" if isinstance(x, (int, float)) or (isinstance(x, str) and x.replace('.', '', 1).isdigit()) else x
         )
@@ -214,12 +238,12 @@ if lua_chon in  ['Nhóm khách hàng','Loại hình bồi thường','Nhóm quy�
             if 'hopdongbaohiem' in file.name.lower():  # Kiểm tra tên tệp có chứa 'nhansu'
                 hopdongbaohiem_file = file
                 break
-        if hopdongbaohiem_file:   
+        if hopdongbaohiem_file:  
             hopdongbaohiem_df = pd.read_excel(hopdongbaohiem_file)
-            sum_tien_da_boi_thuong_theo_donvi = df_fullerton_cleaned.groupby('Đơn vị tham gia BH')['Số tiền đã được bồi thường'].sum().reset_index(name='Tổng số tiền đã bồi thường')
-            sum_tien_da_boi_thuong_theo_level = df_fullerton_cleaned.groupby('Nhóm khách hàng')['Số tiền đã được bồi thường'].sum().reset_index(name='Tổng số tiền đã bồi thường')
-            sum_tien_yeu_cau_boi_thuong_theo_level = df_fullerton_cleaned.groupby('Nhóm khách hàng')['Số tiền yêu cầu bồi thường'].sum().reset_index(name='Tổng số tiền yêu cầu bồi thường')
-            tencongty = df_fullerton_cleaned['Đơn vị tham gia BH'][1]
+            sum_tien_da_boi_thuong_theo_donvi = combined_df.groupby('Đơn vị tham gia BH')['Số tiền đã được bồi thường'].sum().reset_index(name='Tổng số tiền đã bồi thường')
+            sum_tien_da_boi_thuong_theo_level = combined_df.groupby('Nhóm khách hàng')['Số tiền đã được bồi thường'].sum().reset_index(name='Tổng số tiền đã bồi thường')
+            sum_tien_yeu_cau_boi_thuong_theo_level = combined_df.groupby('Nhóm khách hàng')['Số tiền yêu cầu bồi thường'].sum().reset_index(name='Tổng số tiền yêu cầu bồi thường')
+            tencongty = combined_df['Đơn vị tham gia BH'][0]
             ngay_intable = hopdongbaohiem_df['Ngày bắt đầu'].loc[(hopdongbaohiem_df['Tên công ty'] == tencongty) & ((hopdongbaohiem_df['Nhóm khách hàng'] == 'Nhân viên'))]
             ngay_hieu_luc = pd.to_datetime(ngay_intable.iloc[0])
             ngay_lam_bao_cao = datetime.now()
@@ -227,7 +251,7 @@ if lua_chon in  ['Nhóm khách hàng','Loại hình bồi thường','Nhóm quy�
             tongphibaohiem_nv = hopdongbaohiem_df['Tổng phí bảo hiểm'].loc[(hopdongbaohiem_df['Tên công ty'] == tencongty) & ((hopdongbaohiem_df['Nhóm khách hàng'] == 'Nhân viên'))]
             tongphibaohiem_nt = hopdongbaohiem_df['Tổng phí bảo hiểm'].loc[(hopdongbaohiem_df['Tên công ty'] == tencongty) & ((hopdongbaohiem_df['Nhóm khách hàng'] == 'Người thân'))]
             sum_tien_phi_BH_theo_donvi = hopdongbaohiem_df.groupby('Tên công ty')['Tổng phí bảo hiểm'].sum().reset_index(name='Tổng phí bảo hiểm')
-            tong_phi_bao_hiem = sum_tien_phi_BH_theo_donvi['Tổng phí bảo hiểm'].iloc[0]
+            tong_phi_bao_hiem = sum_tien_phi_BH_theo_donvi['Tổng phí bảo hiểm'].loc[(sum_tien_phi_BH_theo_donvi['Tên công ty'] == tencongty)]
             # tongphibaohiem = float(tongphibaohiem)
             so_ngay_tham_gia_BH = float(so_ngay_tham_gia_BH)
             group['Số tiền được bồi thường'] = group['Số tiền được bồi thường'].astype(float)
@@ -236,28 +260,58 @@ if lua_chon in  ['Nhóm khách hàng','Loại hình bồi thường','Nhóm quy�
             tongsotiendaboithuongtheonhanvien = sum_tien_da_boi_thuong_theo_level[sum_tien_da_boi_thuong_theo_level["Nhóm khách hàng"] == "Nhân viên"]["Tổng số tiền đã bồi thường"]
             tongsotiendaboithuongtheonguoithan = sum_tien_da_boi_thuong_theo_level[sum_tien_da_boi_thuong_theo_level["Nhóm khách hàng"] == "Người thân"]["Tổng số tiền đã bồi thường"]
             
-            tongsotienyeucauboithuong = float(tongsotienyeucauboithuongtheonhanvien) + float(tongsotienyeucauboithuongtheonguoithan)
-            tongsotiendaboithuong = float(tongsotiendaboithuongtheonhanvien) + float(tongsotiendaboithuongtheonguoithan)
+            try:
+                if float(tongsotienyeucauboithuongtheonguoithan) and float(tongsotienyeucauboithuongtheonhanvien):
+                    tongsotienyeucauboithuong = float(tongsotienyeucauboithuongtheonhanvien) + float(tongsotienyeucauboithuongtheonguoithan)
+            except TypeError:
+                try:         
+                    if float(tongsotienyeucauboithuongtheonhanvien) :
+                        tongsotienyeucauboithuong = float(tongsotienyeucauboithuongtheonhanvien)
+                except TypeError:
+                    try:
+                        if float(tongsotienyeucauboithuongtheonguoithan):
+                            tongsotienyeucauboithuong = float(tongsotienyeucauboithuongtheonguoithan)
+                    except TypeError:
+                        pass          
+            try:       
+                if  float(tongsotiendaboithuongtheonhanvien) and float(tongsotiendaboithuongtheonguoithan):
+                    tongsotiendaboithuong = float(tongsotiendaboithuongtheonhanvien) + float(tongsotiendaboithuongtheonguoithan)  
+            except TypeError:
+                try:
+                    if  float(tongsotiendaboithuongtheonhanvien) :
+                        tongsotiendaboithuong = float(tongsotiendaboithuongtheonhanvien)
+                except TypeError:
+                    try:
+                        if  float(tongsotiendaboithuongtheonguoithan):
+                            tongsotiendaboithuong = float(tongsotiendaboithuongtheonguoithan)
+                    except TypeError:
+                        pass        
             # group['Tỉ lệ loss thực tế'] = (group['Số tiền được bồi thường']*100*so_ngay_tham_gia_BH)/((365)*tongphibaohiem)
             # group['Tỉ lệ loss ước tính (14m)'] = (group['Số tiền được bồi thường']*100*so_ngay_tham_gia_BH)/((365+30*2)*tongphibaohiem)
             tongsonguoiyeucauboithuong = group['Số người yêu cầu bồi thường'].sum()
-            
             # df_tinh_toan['Tỉ lệ loss thực tế'] = (df_tinh_toan['Số tiền được bồi thường'] * in so_ngay_tham_gia_BH / 365 * tongphibaohiem * 100)
             # df_tinh_toan['Tỉ lệ loss ước tính (14m)'] = (df_tinh_toan['Số tiền được bồi thường'] * so_ngay_tham_gia_BH / (365 + 30 * 2) * tongphibaohiem * 100)
+            try:
+                tongphibaohiem_nv = float(tongphibaohiem_nv)
+            except TypeError:
+                tongphibaohiem_nv = 1
+            try:
+                tongphibaohiem_nt = float(tongphibaohiem_nt)
+            except TypeError:
+                tongphibaohiem_nt = 1
             # group = pd.merge(group, df_tinh_toan[[f'{option}', 'Tỉ lệ loss thực tế', 'Tỉ lệ loss ước tính (14m)']], on=f'{option}', how='left')
             if lua_chon == 'Nhóm khách hàng':
                 group["Tỉ lệ loss thực tế"] = np.where(
                 group["Nhóm khách hàng"] == "Nhân viên",  # Điều kiện
-                (group['Số tiền được bồi thường']*100)/(float(tongphibaohiem_nv)),                         # Nếu điều kiện đúng
-                (group['Số tiền được bồi thường']*100)/(float(tongphibaohiem_nt))                      # Nếu điều kiện sai
+                (group['Số tiền được bồi thường']*100)/(tongphibaohiem_nv),                         # Nếu điều kiện đúng
+                (group['Số tiền được bồi thường']*100)/(tongphibaohiem_nt)                      # Nếu điều kiện sai
             )
                     
                 group["Tỉ lệ loss ước tính (14m)"] = np.where(
                 group["Nhóm khách hàng"] == "Nhân viên",  # Điều kiện
-                (group['Số tiền được bồi thường']*1.1*100*425)/(((so_ngay_tham_gia_BH))*float(tongphibaohiem_nv)),                         # Nếu điều kiện đúng
-                (group['Số tiền được bồi thường']*1.1*100*425)/((so_ngay_tham_gia_BH)*float(tongphibaohiem_nt))                        # Nếu điều kiện sai
+                (group['Số tiền được bồi thường']*1.1*100*425)/(((so_ngay_tham_gia_BH))*tongphibaohiem_nv),                         # Nếu điều kiện đúng
+                (group['Số tiền được bồi thường']*1.1*100*425)/((so_ngay_tham_gia_BH)*tongphibaohiem_nt)                        # Nếu điều kiện sai
             )
-    
     
         group.loc[len(group), f'{lua_chon}'] = "Total"
         group.loc[group[f'{lua_chon}'] == "Total", "Số tiền được bồi thường"] = group["Số tiền được bồi thường"].sum()
@@ -341,16 +395,16 @@ if lua_chon in  ['Nhóm khách hàng','Loại hình bồi thường','Nhóm quy�
         pie_chart2 = px.pie(top_5_amount, names=f'{lua_chon}', values="Số tiền được bồi thường", title=f'Số tiền đã bồi thường theo {lua_chon.lower()}',hole=0.6)
         st.plotly_chart(pie_chart2)
 #df demographicdemographic
-for uploaded_file in uploaded_files:
-    df = load_data(uploaded_file)
-    if df is not None:
-        if "fullerton" in uploaded_file.name.lower():
-            try:
-                a1 = ['Insured ID','Request amount','Claim amount','Rejected amount - paid case','Gender',"DOB"] 
-                df_fullerton_demo = df[a1]  
-                df_fullerton_demo.columns = ['Insured ID', 'Số tiền yêu cầu bồi thường', 'Số tiền đã được bồi thường','Chênh lệch','Giới tính','Ngày sinh']
-                df_fullerton_demo = df_fullerton_cleaned.reset_index(drop=True)
-            except KeyError as e:
-                print(f"Lỗi: Cột {e} không tồn tại trong bảng.")
+# for uploaded_file in uploaded_files:
+#     df = load_data(uploaded_file)
+#     if df is not None:
+#         if "fullerton" in uploaded_file.name.lower():
+#             try:
+#                 a1 = ['Insured ID','Request amount','Claim amount','Rejected amount - paid case','Gender',"DOB"] 
+#                 df_fullerton_demo = df[a1]  
+#                 df_fullerton_demo.columns = ['Insured ID', 'Số tiền yêu cầu bồi thường', 'Số tiền đã được bồi thường','Chênh lệch','Giới tính','Ngày sinh']
+#                 df_fullerton_demo = df_fullerton_cleaned.reset_index(drop=True)
+#             except KeyError as e:
+#                 print(f"Lỗi: Cột {e} không tồn tại trong bảng.")
                 
     
