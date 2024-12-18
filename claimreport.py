@@ -4,6 +4,7 @@ import plotly.express as px
 # import plotly.graph_objects as go
 import streamlit as st
 from datetime import datetime
+import numpy as np
 # import subprocess
 # import webbrowser
 # import psutil 
@@ -138,6 +139,17 @@ for uploaded_file in uploaded_files:
             ngay_hom_nay = datetime.now()
             df_fullerton_cleaned['Tuổi'] = ((ngay_hom_nay -df_fullerton_cleaned['Ngày sinh']).dt.days)/365
             df_fullerton_cleaned['Tuổi'] = df_fullerton_cleaned['Tuổi'].astype(int)
+            df_fullerton_cleaned["Nhóm khách hàng"] = df_fullerton_cleaned["Nhóm khách hàng"].replace({
+                'Others': 'Người thân',
+                'Member': 'Nhân viên',
+                'Child': 'Người thân'
+                # 'children' : 'Dependant',
+                # 'nhanvien_01' : 'Employee',
+                # 'người thân' : 'Dependant',
+                # 'nguoithan_01' : 'Dependant',
+                # 'nhân viên' : 'Employee'
+            })
+            
             dataframes.append(df_fullerton_cleaned) 
         elif 'hopdongbaohiem' in uploaded_file.name.lower():
             df_hopdongbaohiem = df
@@ -164,14 +176,14 @@ if lua_chon in  ['Nhóm khách hàng','Loại hình bồi thường','Nhóm quy�
         "{option}",
         count(distinct "Insured ID") as "Số người yêu cầu bồi thường",
         count("Insured ID") as "Số hồ sơ bồi thường",
-        concat(round(count("Insured ID")*100 /count(*),1),'%') as "%Trường hợp",
+        ROUND(COUNT("Insured ID") * 100.0 / (SELECT COUNT(*) FROM combined_df), 1) as "%Trường hợp",
         ROUND(SUM("Số tiền yêu cầu bồi thường")) AS "Số tiền yêu cầu bồi thường",
         ROUND(SUM("Số tiền đã được bồi thường")) AS "Số tiền được bồi thường",
         ROUND(SUM("Số tiền đã được bồi thường")/count(distinct "Insured ID")) as "Số tiền bồi thường trung bình/người",
-        concat(round(SUM("Số tiền đã được bồi thường")*100/SUM("Số tiền yêu cầu bồi thường"),1),'%') as "Tỉ lệ thành công"
+        round(SUM("Số tiền đã được bồi thường")*100/SUM("Số tiền yêu cầu bồi thường"),1) as "Tỉ lệ thành công"
         -- datediff('day',STRPTIME(CAST("Ngày hiệu lực" AS VARCHAR), '%Y-%m-%d %H:%M:%S'), now()) as "Số ngày đã tham gia"
     FROM combined_df
-    GROUP BY "{option}","Ngày hiệu lực"
+    GROUP BY "{option}"
 """
     ).df()
 
@@ -198,26 +210,72 @@ if lua_chon in  ['Nhóm khách hàng','Loại hình bồi thường','Nhóm quy�
                 break
         if hopdongbaohiem_file:   
             hopdongbaohiem_df = pd.read_excel(hopdongbaohiem_file)
-            sum_tien_da_boi_thuong = df_fullerton_cleaned.groupby('Đơn vị tham gia BH')['Số tiền đã được bồi thường'].sum().reset_index(name='Tổng số tiền đã bồi thường')
+            sum_tien_da_boi_thuong_theo_donvi = df_fullerton_cleaned.groupby('Đơn vị tham gia BH')['Số tiền đã được bồi thường'].sum().reset_index(name='Tổng số tiền đã bồi thường')
+            sum_tien_da_boi_thuong_theo_level = df_fullerton_cleaned.groupby('Nhóm khách hàng')['Số tiền đã được bồi thường'].sum().reset_index(name='Tổng số tiền đã bồi thường')
+            sum_tien_yeu_cau_boi_thuong_theo_level = df_fullerton_cleaned.groupby('Nhóm khách hàng')['Số tiền yêu cầu bồi thường'].sum().reset_index(name='Tổng số tiền yêu cầu bồi thường')
             tencongty = df_fullerton_cleaned['Đơn vị tham gia BH'][1]
-            ngay_intable = hopdongbaohiem_df['Ngày bắt đầu'].loc[hopdongbaohiem_df['Tên công ty'] == tencongty]
+            ngay_intable = hopdongbaohiem_df['Ngày bắt đầu'].loc[(hopdongbaohiem_df['Tên công ty'] == tencongty) & ((hopdongbaohiem_df['Nhóm khách hàng'] == 'Nhân viên'))]
             ngay_hieu_luc = pd.to_datetime(ngay_intable.iloc[0])
             ngay_lam_bao_cao = datetime.now()
             so_ngay_tham_gia_BH = (ngay_lam_bao_cao-ngay_hieu_luc).days
-            tongphibaohiem = ngay_intable = hopdongbaohiem_df['Tổng phí bảo hiểm'].loc[hopdongbaohiem_df['Tên công ty'] == tencongty]
-            tongphibaohiem = float(tongphibaohiem)
+            tongphibaohiem_nv = hopdongbaohiem_df['Tổng phí bảo hiểm'].loc[(hopdongbaohiem_df['Tên công ty'] == tencongty) & ((hopdongbaohiem_df['Nhóm khách hàng'] == 'Nhân viên'))]
+            tongphibaohiem_nt = hopdongbaohiem_df['Tổng phí bảo hiểm'].loc[(hopdongbaohiem_df['Tên công ty'] == tencongty) & ((hopdongbaohiem_df['Nhóm khách hàng'] == 'Người thân'))]
+            sum_tien_phi_BH_theo_donvi = hopdongbaohiem_df.groupby('Tên công ty')['Tổng phí bảo hiểm'].sum().reset_index(name='Tổng phí bảo hiểm')
+            tong_phi_bao_hiem = sum_tien_phi_BH_theo_donvi['Tổng phí bảo hiểm'].iloc[0]
+            # tongphibaohiem = float(tongphibaohiem)
             so_ngay_tham_gia_BH = float(so_ngay_tham_gia_BH)
             group['Số tiền được bồi thường'] = group['Số tiền được bồi thường'].astype(float)
-            group['Tỉ lệ loss thực tế'] = (group['Số tiền được bồi thường']*100*so_ngay_tham_gia_BH)/((365)*tongphibaohiem)
-            group['Tỉ lệ loss ước tính (14m)'] = (group['Số tiền được bồi thường']*100*so_ngay_tham_gia_BH)/((365+30*2)*tongphibaohiem)
+            tongsotienyeucauboithuongtheonhanvien = sum_tien_yeu_cau_boi_thuong_theo_level[sum_tien_yeu_cau_boi_thuong_theo_level["Nhóm khách hàng"] == "Nhân viên"]["Tổng số tiền yêu cầu bồi thường"]
+            tongsotienyeucauboithuongtheonguoithan = sum_tien_yeu_cau_boi_thuong_theo_level[sum_tien_yeu_cau_boi_thuong_theo_level["Nhóm khách hàng"] == "Người thân"]["Tổng số tiền yêu cầu bồi thường"]
+            tongsotiendaboithuongtheonhanvien = sum_tien_da_boi_thuong_theo_level[sum_tien_da_boi_thuong_theo_level["Nhóm khách hàng"] == "Nhân viên"]["Tổng số tiền đã bồi thường"]
+            tongsotiendaboithuongtheonguoithan = sum_tien_da_boi_thuong_theo_level[sum_tien_da_boi_thuong_theo_level["Nhóm khách hàng"] == "Người thân"]["Tổng số tiền đã bồi thường"]
+            
+            tongsotienyeucauboithuong = float(tongsotienyeucauboithuongtheonhanvien) + float(tongsotienyeucauboithuongtheonguoithan)
+            tongsotiendaboithuong = float(tongsotiendaboithuongtheonhanvien) + float(tongsotiendaboithuongtheonguoithan)
+            # group['Tỉ lệ loss thực tế'] = (group['Số tiền được bồi thường']*100*so_ngay_tham_gia_BH)/((365)*tongphibaohiem)
+            # group['Tỉ lệ loss ước tính (14m)'] = (group['Số tiền được bồi thường']*100*so_ngay_tham_gia_BH)/((365+30*2)*tongphibaohiem)
+            tongsonguoiyeucauboithuong = group['Số người yêu cầu bồi thường'].sum()
             
             # df_tinh_toan['Tỉ lệ loss thực tế'] = (df_tinh_toan['Số tiền được bồi thường'] * in so_ngay_tham_gia_BH / 365 * tongphibaohiem * 100)
             # df_tinh_toan['Tỉ lệ loss ước tính (14m)'] = (df_tinh_toan['Số tiền được bồi thường'] * so_ngay_tham_gia_BH / (365 + 30 * 2) * tongphibaohiem * 100)
             # group = pd.merge(group, df_tinh_toan[[f'{option}', 'Tỉ lệ loss thực tế', 'Tỉ lệ loss ước tính (14m)']], on=f'{option}', how='left')
-            
-            
+            if lua_chon == 'Nhóm khách hàng':
+                group["Tỉ lệ loss thực tế"] = np.where(
+                group["Nhóm khách hàng"] == "Nhân viên",  # Điều kiện
+                (group['Số tiền được bồi thường']*1.11*100*so_ngay_tham_gia_BH)/((365)*float(tongphibaohiem_nv)),                         # Nếu điều kiện đúng
+                (group['Số tiền được bồi thường']*1.11*100*so_ngay_tham_gia_BH)/((365)*float(tongphibaohiem_nt))                      # Nếu điều kiện sai
+            )
+                    
+                group["Tỉ lệ loss ước tính (14m)"] = np.where(
+                group["Nhóm khách hàng"] == "Nhân viên",  # Điều kiện
+                (group['Số tiền được bồi thường']*1.11*100*so_ngay_tham_gia_BH)/(((365+30*2))*float(tongphibaohiem_nv)),                         # Nếu điều kiện đúng
+                (group['Số tiền được bồi thường']*1.11*100*so_ngay_tham_gia_BH)/((365+30*2)*float(tongphibaohiem_nt))                        # Nếu điều kiện sai
+            )
+    
+
+        group.loc[len(group), f'{lua_chon}'] = "Total"
+        group.loc[group[f'{lua_chon}'] == "Total", "Số tiền được bồi thường"] = group["Số tiền được bồi thường"].sum()
+        group.loc[group[f'{lua_chon}'] == "Total", "Tỉ lệ thành công"] = ''
+        group.loc[group[f'{lua_chon}'] == "Total", "Số người được bảo hiểm"] = group["Số người được bảo hiểm"].sum()
+        group.loc[group[f'{lua_chon}'] == "Total", "Tỉ lệ yêu cầu bồi thường"] = group["Tỉ lệ yêu cầu bồi thường"].sum()
+        group.loc[group[f'{lua_chon}'] == "Total", "Số hồ sơ bồi thường"] = group["Số hồ sơ bồi thường"].sum()
+        group.loc[group[f'{lua_chon}'] == "Total", "%Trường hợp"] = group["%Trường hợp"].sum()
+        group.loc[group[f'{lua_chon}'] == "Total", "Số người yêu cầu bồi thường"] = group["Số người yêu cầu bồi thường"].sum()
+        group.loc[group[f'{lua_chon}'] == "Total", "Số tiền yêu cầu bồi thường"] = group["Số tiền yêu cầu bồi thường"].sum()
+        group.loc[group[f'{lua_chon}'] == "Total", "Số tiền bồi thường trung bình/người"] =   tongsotiendaboithuong/float(tongsonguoiyeucauboithuong)
+        group.loc[group[f'{lua_chon}'] == "Total", "Tỉ lệ thành công"] =   tongsotiendaboithuong*100/tongsotienyeucauboithuong
+        if lua_chon == 'Nhóm khách hàng':
+            group.loc[group[f'{lua_chon}'] == "Total", "Tỉ lệ loss thực tế"] = (group['Số tiền được bồi thường']*1.11*100*so_ngay_tham_gia_BH)/((365)*float(tong_phi_bao_hiem))
+            group.loc[group[f'{lua_chon}'] == "Total", "Tỉ lệ loss ước tính (14m)"] = (group['Số tiền được bồi thường']*1.11*100*so_ngay_tham_gia_BH)/((365+30*2)*float(tong_phi_bao_hiem))
             
     group_display = group.copy()
+    def convert_to_int(df, columns):
+        for col in columns:
+            if col in df.columns:  # Kiểm tra cột có tồn tại trong DataFrame không
+                df[col] = df[col].apply(lambda x: int(x) if pd.notnull(x) else x)  # Chuyển đổi thành số nguyên
+        return df
+    columns_to_convert = ["Số người yêu cầu bồi thường", "Số hồ sơ bồi thường"]
+    group_display = convert_to_int(group_display, columns_to_convert)
     def format_number(x):
         return "{:,.0f}".format(x)
     def format_percentage(value):
@@ -227,6 +285,8 @@ if lua_chon in  ['Nhóm khách hàng','Loại hình bồi thường','Nhóm quy�
         group_display['Tỉ lệ loss ước tính (14m)'] =  group_display['Tỉ lệ loss ước tính (14m)'].apply(format_percentage)
     except KeyError as e:
         note = 'Khong tim thay cot'
+    group_display['Tỉ lệ thành công'] =  group_display['Tỉ lệ thành công'].apply(format_percentage)
+    group_display['%Trường hợp'] =  group_display['%Trường hợp'].apply(format_percentage)
     group_display['Số tiền yêu cầu bồi thường'] = group_display['Số tiền yêu cầu bồi thường'].apply(format_number)
     group_display['Số tiền được bồi thường'] = group_display['Số tiền được bồi thường'].apply(format_number)
     group_display['Số tiền bồi thường trung bình/người'] = group_display['Số tiền bồi thường trung bình/người'].apply(format_number)
@@ -241,21 +301,22 @@ if lua_chon in  ['Nhóm khách hàng','Loại hình bồi thường','Nhóm quy�
             ]
     
     # Áp dụng màu nền xen kẽ cho các dòng dữ liệu
-        def alternating_row_colors(row):
-            if row.name % 2 == 0:
-                return ['background-color: None'] * len(row)  # Hàng chẵn: trắng
-            else:
-                return ['background-color: None'] * len(row)  # Hàng lẻ: tím nhạt
+        # def alternating_row_colors(row):
+        #     if row.name % 2 == 0:
+        #         return ['background-color: None'] * len(row)  # Hàng chẵn: trắng
+        #     else:
+        #         return ['background-color: None'] * len(row)  # Hàng lẻ: tím nhạt
         
     # Kết hợp styles
-        styled_df = df.style.set_table_styles(styles) \
-                            .apply(alternating_row_colors, axis=1)
+        styled_df = df.style.set_table_styles(styles) 
+        # \
+        #                     .apply(alternating_row_colors, axis=1)
     
         st.markdown(styled_df.to_html(), unsafe_allow_html=True)
         return styled_df
-    top_10_amount = group_display.sort_values(by='Số người yêu cầu bồi thường', ascending=False).head(10)
+    # top_10_amount = group_display.sort_values(by='Số người yêu cầu bồi thường', ascending=False).head(10)
     
-    style_table(top_10_amount)
+    style_table(group_display)
 
     
     top_5_case = group.sort_values(by='Số người yêu cầu bồi thường', ascending=False).head(5)
