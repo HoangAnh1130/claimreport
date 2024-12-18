@@ -188,7 +188,6 @@ if lua_chon in  ['Nhóm khách hàng','Loại hình bồi thường','Nhóm quy�
     ).df()
 
     if lua_chon == "Tuổi":
-        st.write(lua_chon)
         group["Tuổi"] = group["Tuổi"].apply(
             lambda x: f"{int(float(x)):,}" if isinstance(x, (int, float)) or (isinstance(x, str) and x.replace('.', '', 1).isdigit()) else x
         )
