@@ -188,6 +188,7 @@ if lua_chon in  ['Nhóm khách hàng','Loại hình bồi thường','Nhóm quy�
     ).df()
 
     if lua_chon == "Tuổi":
+        st.write(lua_chon)
         group["Tuổi"] = group["Tuổi"].apply(
             lambda x: f"{int(float(x)):,}" if isinstance(x, (int, float)) or (isinstance(x, str) and x.replace('.', '', 1).isdigit()) else x
         )
@@ -247,17 +248,17 @@ if lua_chon in  ['Nhóm khách hàng','Loại hình bồi thường','Nhóm quy�
             if lua_chon == 'Nhóm khách hàng':
                 group["Tỉ lệ loss thực tế"] = np.where(
                 group["Nhóm khách hàng"] == "Nhân viên",  # Điều kiện
-                (group['Số tiền được bồi thường']*1.11*100*so_ngay_tham_gia_BH)/((365)*float(tongphibaohiem_nv)),                         # Nếu điều kiện đúng
-                (group['Số tiền được bồi thường']*1.11*100*so_ngay_tham_gia_BH)/((365)*float(tongphibaohiem_nt))                      # Nếu điều kiện sai
+                (group['Số tiền được bồi thường']*100)/(float(tongphibaohiem_nv)),                         # Nếu điều kiện đúng
+                (group['Số tiền được bồi thường']*100)/(float(tongphibaohiem_nt))                      # Nếu điều kiện sai
             )
                     
                 group["Tỉ lệ loss ước tính (14m)"] = np.where(
                 group["Nhóm khách hàng"] == "Nhân viên",  # Điều kiện
-                (group['Số tiền được bồi thường']*1.11*100*so_ngay_tham_gia_BH)/(((365+30*2))*float(tongphibaohiem_nv)),                         # Nếu điều kiện đúng
-                (group['Số tiền được bồi thường']*1.11*100*so_ngay_tham_gia_BH)/((365+30*2)*float(tongphibaohiem_nt))                        # Nếu điều kiện sai
+                (group['Số tiền được bồi thường']*1.1*100*425)/(((so_ngay_tham_gia_BH))*float(tongphibaohiem_nv)),                         # Nếu điều kiện đúng
+                (group['Số tiền được bồi thường']*1.1*100*425)/((so_ngay_tham_gia_BH)*float(tongphibaohiem_nt))                        # Nếu điều kiện sai
             )
     
-
+    
         group.loc[len(group), f'{lua_chon}'] = "Total"
         group.loc[group[f'{lua_chon}'] == "Total", "Số tiền được bồi thường"] = group["Số tiền được bồi thường"].sum()
         group.loc[group[f'{lua_chon}'] == "Total", "Tỉ lệ thành công"] = ''
@@ -270,8 +271,8 @@ if lua_chon in  ['Nhóm khách hàng','Loại hình bồi thường','Nhóm quy�
         group.loc[group[f'{lua_chon}'] == "Total", "Số tiền bồi thường trung bình/người"] =   tongsotiendaboithuong/float(tongsonguoiyeucauboithuong)
         group.loc[group[f'{lua_chon}'] == "Total", "Tỉ lệ thành công"] =   tongsotiendaboithuong*100/tongsotienyeucauboithuong
         if lua_chon == 'Nhóm khách hàng':
-            group.loc[group[f'{lua_chon}'] == "Total", "Tỉ lệ loss thực tế"] = (group['Số tiền được bồi thường']*1.11*100*so_ngay_tham_gia_BH)/((365)*float(tong_phi_bao_hiem))
-            group.loc[group[f'{lua_chon}'] == "Total", "Tỉ lệ loss ước tính (14m)"] = (group['Số tiền được bồi thường']*1.11*100*so_ngay_tham_gia_BH)/((365+30*2)*float(tong_phi_bao_hiem))
+            group.loc[group[f'{lua_chon}'] == "Total", "Tỉ lệ loss thực tế"] = (group['Số tiền được bồi thường']*100)/(float(tong_phi_bao_hiem))
+            group.loc[group[f'{lua_chon}'] == "Total", "Tỉ lệ loss ước tính (14m)"] = (group['Số tiền được bồi thường']*1.11*100*425)/((so_ngay_tham_gia_BH)*float(tong_phi_bao_hiem))
             
     group_display = group.copy()
     def convert_to_int(df, columns):
