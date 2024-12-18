@@ -186,7 +186,11 @@ if lua_chon in  ['Nhóm khách hàng','Loại hình bồi thường','Nhóm quy�
     GROUP BY "{option}"
 """
     ).df()
-
+    if lua_chon == "Tuổi":
+        st.write(lua_chon)
+        group["Tuổi"] = group["Tuổi"].apply(
+            lambda x: f"{int(float(x)):,}" if isinstance(x, (int, float)) or (isinstance(x, str) and x.replace('.', '', 1).isdigit()) else x
+        )
     nhansu_file = None 
     for file in uploaded_files:
         if 'nhansu' in file.name.lower():  # Kiểm tra tên tệp có chứa 'nhansu'
