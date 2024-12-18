@@ -116,7 +116,7 @@ elif st.session_state["active_group"] == "group_2":
         
 else:
     st.write("Vui lòng chọn nhóm phân tích")
-  
+
 # Hiển thị tiêu đề
 st.markdown('<div class="title">CLAIM REPORT</div>', unsafe_allow_html=True)
 st.title('')
@@ -140,13 +140,21 @@ for uploaded_file in uploaded_files:
             df_fullerton_cleaned['Tuổi'] = df_fullerton_cleaned['Tuổi'].astype(int)
             dataframes.append(df_fullerton_cleaned) 
         elif 'hopdongbaohiem' in uploaded_file.name.lower():
-            df_hopdongbaohiem = df 
+            df_hopdongbaohiem = df
+        else: 
+            df_phan_tich = df['Insured ID','Nhóm khách hàng', 'Nhóm bệnh', 'Số tiền yêu cầu bồi thường', 'Số tiền đã được bồi thường','Chênh lệch','Cơ sở y tế','Nhóm quyền lợi','Lý do từ chối','Đơn vị tham gia BH','Ngày hiệu lực','Loại hình bồi thường','Giới tính','Ngày sinh'] 
+            dataframes.append(df_phan_tich) 
         # elif 'nhansu' in uploaded_file.name.lower():
         #     df = df['Insured ID','Nhóm', 'Nhóm bệnh', 'Yêu cầu bồi thường', 'Đã được bồi thường','Chênh lệch','Cơ sở y tế','Nhóm quyền lợi','Lý do từ chối','Tên công ty']
         # else:
         #     # File không hợp lệ, xóa nó khỏi danh sách và cảnh báo
         #     st.error(f"Invalid file name: {uploaded_file.name}. This file does not match expected naming conventions.")
         #     uploaded_files.remove(uploaded_file)  # Xóa file không hợp lệ khỏi danh sách
+if dataframes:
+    combined_df = pd.concat(dataframes, ignore_index=True)
+else:
+    combined_df = pd.DataFrame(columns=['Insured ID','Nhóm khách hàng', 'Nhóm bệnh', 'Số tiền yêu cầu bồi thường', 'Số tiền đã được bồi thường','Chênh lệch','Cơ sở y tế','Nhóm quyền lợi','Lý do từ chối','Đơn vị tham gia BH','Ngày hiệu lực','Loại hình bồi thường','Giới tính','Ngày sinh'])
+
 
 if lua_chon in  ['Nhóm khách hàng','Loại hình bồi thường','Nhóm quyền lợi','Đơn vị tham gia BH','Nhóm bệnh','Cơ sở y tế','Giới tính','Tuổi']:
     option = lua_chon
@@ -162,7 +170,7 @@ if lua_chon in  ['Nhóm khách hàng','Loại hình bồi thường','Nhóm quy�
         ROUND(SUM("Số tiền đã được bồi thường")/count(distinct "Insured ID")) as "Số tiền bồi thường trung bình/người",
         concat(round(SUM("Số tiền đã được bồi thường")*100/SUM("Số tiền yêu cầu bồi thường"),1),'%') as "Tỉ lệ thành công"
         -- datediff('day',STRPTIME(CAST("Ngày hiệu lực" AS VARCHAR), '%Y-%m-%d %H:%M:%S'), now()) as "Số ngày đã tham gia"
-    FROM df_fullerton_cleaned
+    FROM combined_df
     GROUP BY "{option}","Ngày hiệu lực"
 """
     ).df()
@@ -172,7 +180,7 @@ if lua_chon in  ['Nhóm khách hàng','Loại hình bồi thường','Nhóm quy�
         if 'nhansu' in file.name.lower():  # Kiểm tra tên tệp có chứa 'nhansu'
             nhansu_file = file
             break
-    if "fullerton" in uploaded_file.name.lower():    
+    if dataframes:    
         if nhansu_file:
             nhansu_df = pd.read_excel(nhansu_file)
             result = pd.merge(group, nhansu_df, how='right', on='Insure ID')
@@ -214,8 +222,11 @@ if lua_chon in  ['Nhóm khách hàng','Loại hình bồi thường','Nhóm quy�
         return "{:,.0f}".format(x)
     def format_percentage(value):
         return "{:.2f}%".format(float(value)).replace('.', ',')
-    group_display['Tỉ lệ loss thực tế'] =  group_display['Tỉ lệ loss thực tế'].apply(format_percentage)
-    group_display['Tỉ lệ loss ước tính (14m)'] =  group_display['Tỉ lệ loss ước tính (14m)'].apply(format_percentage)
+    try:
+        group_display['Tỉ lệ loss thực tế'] =  group_display['Tỉ lệ loss thực tế'].apply(format_percentage)
+        group_display['Tỉ lệ loss ước tính (14m)'] =  group_display['Tỉ lệ loss ước tính (14m)'].apply(format_percentage)
+    except KeyError as e:
+        note = 'Khong tim thay cot'
     group_display['Số tiền yêu cầu bồi thường'] = group_display['Số tiền yêu cầu bồi thường'].apply(format_number)
     group_display['Số tiền được bồi thường'] = group_display['Số tiền được bồi thường'].apply(format_number)
     group_display['Số tiền bồi thường trung bình/người'] = group_display['Số tiền bồi thường trung bình/người'].apply(format_number)
@@ -235,7 +246,7 @@ if lua_chon in  ['Nhóm khách hàng','Loại hình bồi thường','Nhóm quy�
                 return ['background-color: None'] * len(row)  # Hàng chẵn: trắng
             else:
                 return ['background-color: None'] * len(row)  # Hàng lẻ: tím nhạt
-
+        
     # Kết hợp styles
         styled_df = df.style.set_table_styles(styles) \
                             .apply(alternating_row_colors, axis=1)
