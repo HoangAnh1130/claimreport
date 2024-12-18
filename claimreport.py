@@ -253,7 +253,9 @@ if lua_chon in  ['Nhóm khách hàng','Loại hình bồi thường','Nhóm quy�
     
         st.markdown(styled_df.to_html(), unsafe_allow_html=True)
         return styled_df
-    style_table(group_display)
+    top_10_amount = group_display.sort_values(by='Số người yêu cầu bồi thường', ascending=False).head(10)
+    
+    style_table(top_10_amount)
 
     
     top_5_case = group.sort_values(by='Số người yêu cầu bồi thường', ascending=False).head(5)
