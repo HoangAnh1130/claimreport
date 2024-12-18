@@ -186,11 +186,13 @@ if lua_chon in  ['Nhóm khách hàng','Loại hình bồi thường','Nhóm quy�
     GROUP BY "{option}"
 """
     ).df()
+
     if lua_chon == "Tuổi":
         st.write(lua_chon)
         group["Tuổi"] = group["Tuổi"].apply(
             lambda x: f"{int(float(x)):,}" if isinstance(x, (int, float)) or (isinstance(x, str) and x.replace('.', '', 1).isdigit()) else x
         )
+
     nhansu_file = None 
     for file in uploaded_files:
         if 'nhansu' in file.name.lower():  # Kiểm tra tên tệp có chứa 'nhansu'
@@ -199,11 +201,11 @@ if lua_chon in  ['Nhóm khách hàng','Loại hình bồi thường','Nhóm quy�
     if dataframes:    
         if nhansu_file:
             nhansu_df = pd.read_excel(nhansu_file)
-            result = pd.merge(group, nhansu_df, how='right', on='Insure ID')
-            count = result.groupby('Insure ID')['Insure ID'].count().reset_index(name='Số người được bảo hiểm')
-            group['Số người được bảo hiểm'] = count.pop('Số người được bảo hiểm').values
-            a = group["Số người yêu cầu bồi thường"] / group['Số người được bảo hiểm']
-            group.insert(3, 'Tỉ lệ yêu cầu bồi thường', a )
+            # result = pd.merge(group, nhansu_df, how='right', on='Insure ID')
+            # count = result.groupby('Insure ID')['Insure ID'].count().reset_index(name='Số người được bảo hiểm')
+            # group.insert(1, 'Số người được bảo hiểm', count.pop('Số người được bảo hiểm'))
+            # a = group["Số người yêu cầu bồi thường"] / group['Số người được bảo hiểm']
+            # group.insert(3, 'Tỉ lệ yêu cầu bồi thường', a )
         else:
             group.insert(1, 'Số người được bảo hiểm', None)
             group.insert(3, 'Tỉ lệ yêu cầu bồi thường', None)
