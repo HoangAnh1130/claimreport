@@ -228,7 +228,7 @@ if lua_chon in  ['Nhóm khách hàng','Loại hình bồi thường','Nhóm quy�
             if nhansu_file:
                 nhansu_df = pd.read_excel(nhansu_file)  
                 if tencongty in nhansu_df['Tên công ty'].values:
-                    # try:                   
+                    try:                   
                         tongsonhanvien = nhansu_df.loc[nhansu_df['Tên công ty'] == tencongty, 'Họ tên nhân viên'].nunique()
                         tongsonguoithan = nhansu_df.loc[nhansu_df['Tên công ty'] == tencongty, 'Họ tên người thân'].nunique()
                         tongsongdcbaohiem = tongsonhanvien+tongsonguoithan
@@ -261,8 +261,8 @@ if lua_chon in  ['Nhóm khách hàng','Loại hình bồi thường','Nhóm quy�
                     # count = result.groupby('Insure ID')['Insure ID'].count().reset_index(name='Số người được bảo hiểm')
                     # a = group["Số người yêu cầu bồi thường"] / group['Số người được bảo hiểm']
                     # group.insert(3, 'Tỉ lệ yêu cầu bồi thường', a )
-                    # except KeyError:
-                    #     pass
+                    except KeyError:
+                        pass
             else:
                 pass
         except NameError:
