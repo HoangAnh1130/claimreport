@@ -269,7 +269,7 @@ if lua_chon in  ['Nhóm khách hàng','Loại hình bồi thường','Nhóm quy�
             pass    
             
             
-        hopdongbaohiem = None 
+        hopdongbaohiem_file = None 
         for file in uploaded_files:
             if 'hopdongbaohiem' in file.name.lower():  # Kiểm tra tên tệp có chứa 'nhansu'
                 hopdongbaohiem_file = file
@@ -361,7 +361,7 @@ if lua_chon in  ['Nhóm khách hàng','Loại hình bồi thường','Nhóm quy�
         group.loc[group[f'{lua_chon}'] == "Total", "Số tiền yêu cầu bồi thường"] = group["Số tiền yêu cầu bồi thường"].sum()
         group.loc[group[f'{lua_chon}'] == "Total", "Số tiền bồi thường trung bình/người"] =   tongsotiendaboithuong/float(tongsonguoiyeucauboithuong)
         group.loc[group[f'{lua_chon}'] == "Total", "Tỉ lệ thành công"] =   tongsotiendaboithuong*100/tongsotienyeucauboithuong
-        if lua_chon == 'Nhóm khách hàng' and nhansu_file is not None:
+        if lua_chon == 'Nhóm khách hàng' and hopdongbaohiem_file is not None:
             try:
                 group.loc[group[f'{lua_chon}'] == "Total", "Tỉ lệ loss thực tế"] = (group['Số tiền được bồi thường']*100)/(float(tong_phi_bao_hiem))
                 group.loc[group[f'{lua_chon}'] == "Total", "Tỉ lệ loss ước tính (14m)"] = (group['Số tiền được bồi thường']*1.11*100*425)/((so_ngay_tham_gia_BH)*float(tong_phi_bao_hiem))
