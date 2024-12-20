@@ -117,6 +117,14 @@ elif st.session_state["active_group"] == "group_2":
         
 else:
     st.write("Vui lòng chọn nhóm phân tích")
+    
+if 'top_by' not in st.session_state:
+    st.session_state.top_by = ''
+if st.button('Top 5 theo số tiền đã bồi thường'):
+    st.session_state.top_by = 'ST'
+if st.button('Top 5 theo số người yêu cầu bồi thường'):
+    st.session_state.top_by = 'SN'
+
 
 # Hiển thị tiêu đề
 st.markdown('<div class="title">CLAIM REPORT</div>', unsafe_allow_html=True)
@@ -189,6 +197,13 @@ for uploaded_file in uploaded_files:
         #     uploaded_files.remove(uploaded_file)  # Xóa file không hợp lệ khỏi danh sách
 if dataframes:
     combined_df = pd.concat(dataframes, ignore_index=True)
+    combined_df['Tuổi'] = combined_df['Tuổi'].apply(lambda x: "Dưới 18" if x < 18 
+                                          else ("18-24" if x <= 24 
+                                                else ("25-34" if x <= 34 
+                                                      else ("35-44" if x <= 44 
+                                                            else ("45-54" if x <= 54 
+                                                                  else ("55-64" if x <= 64 
+                                                                        else "Trên 65"))))))
 else:
     combined_df = pd.DataFrame(columns=['Insured ID','Nhóm khách hàng', 'Nhóm bệnh', 'Số tiền yêu cầu bồi thường', 'Số tiền đã được bồi thường','Chênh lệch','Cơ sở y tế','Nhóm quyền lợi','Lý do từ chối','Đơn vị tham gia BH','Ngày hiệu lực','Loại hình bồi thường','Giới tính','Ngày sinh'])
 
@@ -213,6 +228,7 @@ if lua_chon in  ['Nhóm khách hàng','Loại hình bồi thường','Nhóm quy�
     ).df()
 
     if lua_chon == "Tuổi":
+        
         group["Tuổi"] = group["Tuổi"].apply(
             lambda x: f"{int(float(x)):,}" if isinstance(x, (int, float)) or (isinstance(x, str) and x.replace('.', '', 1).isdigit()) else x
         )
@@ -346,7 +362,13 @@ if lua_chon in  ['Nhóm khách hàng','Loại hình bồi thường','Nhóm quy�
                     pass
         tongsonguoiyeucauboithuong = group['Số người yêu cầu bồi thường'].sum()
         
-        
+        top_5_case = group.sort_values(by='Số người yêu cầu bồi thường', ascending=False).head(5)
+        top_5_amount = group.sort_values(by='Số tiền được bồi thường', ascending=False).head(5)
+        if st.session_state.top_by ==  'ST' :
+            group =  top_5_amount
+        elif st.session_state.top_by ==  'SN' :
+            group =  top_5_case
+    
         group.loc[len(group), f'{lua_chon}'] = "Total"
         group.loc[group[f'{lua_chon}'] == "Total", "Số tiền được bồi thường"] = group["Số tiền được bồi thường"].sum()
         group.loc[group[f'{lua_chon}'] == "Total", "Tỉ lệ thành công"] = ''
@@ -424,8 +446,6 @@ if lua_chon in  ['Nhóm khách hàng','Loại hình bồi thường','Nhóm quy�
     style_table(group_display)
 
     
-    top_5_case = group.sort_values(by='Số người yêu cầu bồi thường', ascending=False).head(5)
-    top_5_amount = group.sort_values(by='Số tiền được bồi thường', ascending=False).head(5)
     col_pie_chart1, col_pie_chart2 = st.columns(2)
     with col_pie_chart1:
         pie_chart1 = px.pie(top_5_case, names=f'{lua_chon}', values="Số hồ sơ bồi thường", title=f'Số hồ sơ yêu cầu bồi thường theo {lua_chon.lower()}', 
