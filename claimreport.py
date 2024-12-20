@@ -108,7 +108,7 @@ if st.session_state["active_group"] == "group_1":
 elif st.session_state["active_group"] == "group_2":
     if st.session_state['selected_option_group2'] == "Báo cáo nhóm bệnh":
         lua_chon = 'Nhóm bệnh'
-    elif st.session_state['selected_option_group2'] == "Báo cáo cơ sở y tế":
+    elif st.session_state['selected_option_group2'] == "Báo cáo cơ sở y tế":    
         lua_chon = 'Cơ sở y tế'
     elif st.session_state['selected_option_group2'] == "Báo cáo độ tuổi":
         lua_chon = 'Tuổi'
