@@ -196,7 +196,7 @@ for uploaded_file in uploaded_files:
         elif 'nhansu' in uploaded_file.name.lower():
             df_nhansu = df
         else: 
-            df_phan_tich = df['Insured ID','Nhóm khách hàng', 'Nhóm bệnh', 'Số tiền yêu cầu bồi thường', 'Số tiền đã được bồi thường','Chênh lệch','Cơ sở y tế','Nhóm quyền lợi','Lý do từ chối','Đơn vị tham gia BH','Ngày hiệu lực','Loại hình bồi thường','Giới tính','Ngày sinh'] 
+            df_phan_tich = df[['Insured ID', 'Nhóm khách hàng', 'Nhóm bệnh', 'Số tiền yêu cầu bồi thường', 'Số tiền đã được bồi thường', 'Chênh lệch', 'Cơ sở y tế', 'Nhóm quyền lợi', 'Lý do từ chối', 'Đơn vị tham gia BH', 'Ngày hiệu lực', 'Loại hình bồi thường', 'Giới tính', 'Ngày sinh']]
             dataframes.append(df_phan_tich) 
         # elif 'nhansu' in uploaded_file.name.lower():
         #     df = df['Insured ID','Nhóm', 'Nhóm bệnh', 'Yêu cầu bồi thường', 'Đã được bồi thường','Chênh lệch','Cơ sở y tế','Nhóm quyền lợi','Lý do từ chối','Tên công ty']
