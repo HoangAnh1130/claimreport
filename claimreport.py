@@ -121,13 +121,14 @@ else:
 if 'top_by' not in st.session_state:
     st.session_state.top_by = ''
 if lua_chon in ['Cơ sở y tế','Nhóm bệnh']:
-    col1,col2 = st.columns(2)
+    col1,col2,col3 = st.columns(3)
     with col1:      
         if st.button('Top 5 theo số tiền đã bồi thường'):
             st.session_state.top_by = 'ST5'
+    with col2:
         if st.button('Top 5 theo số người yêu cầu bồi thường'):
             st.session_state.top_by = 'SN5'
-    with col2:
+    with col3:
         # if st.button('Top 10 theo số tiền đã bồi thường'):
         #     st.session_state.top_by = 'ST10'
         # if st.button('Top 10 theo số người yêu cầu bồi thường'):
@@ -141,75 +142,166 @@ st.title('')
 
 # Load each file and display its data
 dataframes = []
+
 #df claim chungchung
 for uploaded_file in uploaded_files:
     df = load_data(uploaded_file)
     
     if df is not None:
+        # Hàm kiểm tra khả năng chuyển đổi sang float
+        def check_float_conversion(value):
+            try:
+                float(value)
+                return True
+            except ValueError:
+                return False
+
+        # Hàm kiểm tra định dạng ngày tháng
+        def check_datetime_conversion(value):
+            try:
+                pd.to_datetime(value)  # Sử dụng pandas để kiểm tra và chuyển đổi
+                return True
+            except (ValueError, TypeError):
+                return False
+        cot_quet_float = ["Số tiền yêu cầu bồi thường", "Số tiền đã được bồi thường","Chênh lệch"]  # Các cột cần kiểm tra điều kiện float
+        cot_quet_date = ["Ngày hiệu lực", "Ngày sinh"]  # Các cột cần kiểm tra định dạng ngày
+
+        # Biến lưu trạng thái tổng quát
+        errors = False
+        error_messages = []  # Lưu thông báo lỗi
         if "fullerton" in uploaded_file.name.lower():
-            df['Insured ID'] = df['Insured ID'].astype(str)
             fullerton_desired_columns = ['Insured ID',"Relation", 'Chan doan benh', 'Request amount','Claim amount','Rejected amount - paid case','Medical providers','Beneficiary type','Reject reasons','Client name','Policy effective date','Type of claim submit','Gender','DOB']
-            df_fullerton_cleaned = df[fullerton_desired_columns]
-            df_fullerton_cleaned.columns = ['Insured ID','Nhóm khách hàng', 'Nhóm bệnh', 'Số tiền yêu cầu bồi thường', 'Số tiền đã được bồi thường','Chênh lệch','Cơ sở y tế','Nhóm quyền lợi','Lý do từ chối','Đơn vị tham gia BH','Ngày hiệu lực','Loại hình bồi thường','Giới tính','Ngày sinh']
-            df_fullerton_cleaned = df_fullerton_cleaned.reset_index(drop=True)
-            df_fullerton_cleaned['Ngày sinh'] = pd.to_datetime(df_fullerton_cleaned['Ngày sinh'], errors='coerce')
-            ngay_hom_nay = datetime.now()
-            df_fullerton_cleaned['Tuổi'] = ((ngay_hom_nay -df_fullerton_cleaned['Ngày sinh']).dt.days)/365
-            df_fullerton_cleaned['Tuổi'] = df_fullerton_cleaned['Tuổi'].astype(int)
-            df_fullerton_cleaned["Nhóm khách hàng"] = df_fullerton_cleaned["Nhóm khách hàng"].replace({
-                'Others': 'Người thân',
-                'Member': 'Nhân viên',
-                'Child': 'Người thân'
-                # 'children' : 'Dependant',
-                # 'nhanvien_01' : 'Employee',
-                # 'người thân' : 'Dependant',
-                # 'nguoithan_01' : 'Dependant',
-                # 'nhân viên' : 'Employee'
-            })
-            
-            dataframes.append(df_fullerton_cleaned) 
+            try:
+                df['Insured ID'] = df['Insured ID'].astype(str)
+                df_fullerton_cleaned = df[fullerton_desired_columns]
+                df_fullerton_cleaned.columns = ['Insured ID','Nhóm khách hàng', 'Nhóm bệnh', 'Số tiền yêu cầu bồi thường', 'Số tiền đã được bồi thường','Chênh lệch','Cơ sở y tế','Nhóm quyền lợi','Lý do từ chối','Đơn vị tham gia BH','Ngày hiệu lực','Loại hình bồi thường','Giới tính','Ngày sinh']
+                df_fullerton_cleaned = df_fullerton_cleaned.reset_index(drop=True)
+                df_fullerton_cleaned['Ngày sinh'] = pd.to_datetime(df_fullerton_cleaned['Ngày sinh'], errors='coerce')
+                ngay_hom_nay = datetime.now()
+                df_fullerton_cleaned['Tuổi'] = ((ngay_hom_nay -df_fullerton_cleaned['Ngày sinh']).dt.days)/365
+                df_fullerton_cleaned['Tuổi'] = df_fullerton_cleaned['Tuổi'].astype(int)
+                df_fullerton_cleaned["Nhóm khách hàng"] = df_fullerton_cleaned["Nhóm khách hàng"].replace({
+                    'Others': 'Người thân',
+                    'Member': 'Nhân viên',
+                    'Child': 'Người thân'
+                    # 'children' : 'Dependant',
+                    # 'nhanvien_01' : 'Employee',
+                    # 'người thân' : 'Dependant',
+                    # 'nguoithan_01' : 'Dependant',
+                    # 'nhân viên' : 'Employee'
+                })
+                
+                # dataframes.append(df_fullerton_cleaned) 
+            except Exception:
+                missing_columns = [col for col in fullerton_desired_columns if col not in df.columns]
+                if missing_columns:
+                    st.write("Các cột còn thiếu:", ', '.join(missing_columns))   
+                
         elif "pvi" in uploaded_file.name.lower():
-            df1 = df
-            df1 = df1.drop(index = [0,1])   
-            df1 = df1[['Số hồ sơ bồi thường','Đối tượng bảo hiểm','Nhóm bệnh','Số tiền yêu cầu BT','Số tiền bồi thường\n(100%)','Số tiền từ chối BT','Cơ sở y tế','Quyền lợi BH','Nguyên nhân từ chối BT',
-                    'Đơn vị tham gia BH','Từ ngày','Phương thức khai thác','Tuổi NĐBH']]
-            df1.rename(columns={'Số hồ sơ bồi thường': 'Insured ID', 'Đối tượng bảo hiểm':'Nhóm khách hàng','Số tiền yêu cầu BT':'Số tiền yêu cầu bồi thường','Số tiền bồi thường\n(100%)':'Số tiền đã được bồi thường',
-                                'Số tiền từ chối BT':'Chênh lệch','Nguyên nhân từ chối BT':'Lý do từ chối','Từ ngày':'Ngày hiệu lực','Phương thức khai thác':'Loại hình bồi thường','Tuổi NĐBH'  :'Tuổi','Quyền lợi BH' : 'Nhóm quyền lợi'}, inplace= True)
-            df1.head(2)
-            dataframes.append(df1) 
+            required_col = ['Số hồ sơ bồi thường','Đối tượng bảo hiểm','Nhóm bệnh','Số tiền yêu cầu BT','Số tiền bồi thường\n(100%)','Số tiền từ chối BT','Cơ sở y tế','Quyền lợi BH','Nguyên nhân từ chối BT',
+                    'Đơn vị tham gia BH','Từ ngày','Phương thức khai thác','Tuổi NĐBH']
+            try: 
+                df1 = df
+                df1 = df1.drop(index = [0,1])   
+                df1 = df1[required_col]
+                df1.rename(columns={'Số hồ sơ bồi thường': 'Insured ID', 'Đối tượng bảo hiểm':'Nhóm khách hàng','Số tiền yêu cầu BT':'Số tiền yêu cầu bồi thường','Số tiền bồi thường\n(100%)':'Số tiền đã được bồi thường',
+                                    'Số tiền từ chối BT':'Chênh lệch','Nguyên nhân từ chối BT':'Lý do từ chối','Từ ngày':'Ngày hiệu lực','Phương thức khai thác':'Loại hình bồi thường','Tuổi NĐBH'  :'Tuổi','Quyền lợi BH' : 'Nhóm quyền lợi'}, inplace= True)
+                df1.head(2)
+                # dataframes.append(df1) 
+            except Exception:
+                missing_columns = [col for col in required_col if col not in df.columns]
+                if missing_columns:
+                    st.write("Các cột còn thiếu:", ', '.join(missing_columns))
+                    
         elif "pti" in uploaded_file.name.lower():
-            df2 = df
-            df2 = df2.drop(index = 0)
-            df_filter = df2[['Trợ cấp nghỉ/lương','Tử vong/ Thương tật  vĩnh viễn','Nằm viện điều trị','Nằm viện phẫu thuật','Sinh thường','Sinh mổ và biến chứng thai sản','Điều trị ngoại trú','Điều trị răng','Tử vong do ốm bệnh thai sản']]
-            df_filter['Nhóm quyền lợi'] = df_filter.apply(lambda row: ', '.join(row.index[row != 0]), axis=1)
-            df2 = pd.concat([df2, df_filter['Nhóm quyền lợi']], axis=1)
-            df2 = df2[['Số hồ sơ','Nhóm','Mã Bệnh','Số tiền yêu cầu bồi thường','Tổng số tiền bồi thường','Tên bệnh viện','Nhóm quyền lợi','Diễn giải','Tên chủ hợp đồng','Từ','Phân loại hồ sơ','Nam/Nữ','Tuổi']]
-            df2.rename(columns={'Số hồ sơ': 'Insured ID', 'Nhóm': 'Nhóm khách hàng','Mã Bệnh':'Nhóm bệnh','Tổng số tiền bồi thường':'Số tiền đã được bồi thường',
-                                'Tên bệnh viện':'Cơ sở y tế','Diễn giải':'Lý do từ chối','Tên chủ hợp đồng':'Đơn vị tham gia BH','Từ':'Ngày hiệu lực','Phân loại hồ sơ':'Loại hình bồi thường','Nam/Nữ':"Giới tính"}, inplace= True)
-            df2.head()
-            df2["Nhóm khách hàng"] = df2["Nhóm khách hàng"].replace({
-                'NHANVIEN_01': 'Nhân viên'
-            })
-            dataframes.append(df2)
+            required_col = ['Trợ cấp nghỉ/lương','Tử vong/ Thương tật  vĩnh viễn','Nằm viện điều trị','Nằm viện phẫu thuật','Sinh thường','Sinh mổ và biến chứng thai sản','Điều trị ngoại trú','Điều trị răng','Tử vong do ốm bệnh thai sản']
+            try:
+                df2 = df
+                df2 = df2.drop(index = 0)
+                df_filter = df2[required_col]
+                df_filter['Nhóm quyền lợi'] = df_filter.apply(lambda row: ', '.join(row.index[row != 0]), axis=1)
+                df2 = pd.concat([df2, df_filter['Nhóm quyền lợi']], axis=1)
+                df2 = df2[['Số hồ sơ','Nhóm','Mã Bệnh','Số tiền yêu cầu bồi thường','Tổng số tiền bồi thường','Tên bệnh viện','Nhóm quyền lợi','Diễn giải','Tên chủ hợp đồng','Từ','Phân loại hồ sơ','Nam/Nữ','Tuổi']]
+                df2.rename(columns={'Số hồ sơ': 'Insured ID', 'Nhóm': 'Nhóm khách hàng','Mã Bệnh':'Nhóm bệnh','Tổng số tiền bồi thường':'Số tiền đã được bồi thường',
+                                    'Tên bệnh viện':'Cơ sở y tế','Diễn giải':'Lý do từ chối','Tên chủ hợp đồng':'Đơn vị tham gia BH','Từ':'Ngày hiệu lực','Phân loại hồ sơ':'Loại hình bồi thường','Nam/Nữ':"Giới tính"}, inplace= True)
+                df2.head()
+                df2["Nhóm khách hàng"] = df2["Nhóm khách hàng"].replace({
+                    'NHANVIEN_01': 'Nhân viên'
+                })
+                # dataframes.append(df2)
+            except Exception:
+                missing_columns = [col for col in required_col if col not in df.columns]
+
+                if missing_columns:
+                    st.write("Các cột còn thiếu:", ', '.join(missing_columns))
         elif 'hopdongbaohiem' in uploaded_file.name.lower():
             df_hopdongbaohiem = df
         elif 'nhansu' in uploaded_file.name.lower():
             df_nhansu = df
         else: 
-            df_phan_tich = df[['Insured ID', 'Nhóm khách hàng', 'Nhóm bệnh', 'Số tiền yêu cầu bồi thường', 'Số tiền đã được bồi thường', 'Chênh lệch', 'Cơ sở y tế', 'Nhóm quyền lợi', 'Lý do từ chối', 'Đơn vị tham gia BH', 'Ngày hiệu lực', 'Loại hình bồi thường', 'Giới tính', 'Ngày sinh']]
-             
-            df_phan_tich['Ngày sinh'] = pd.to_datetime(df_phan_tich['Ngày sinh'], errors='coerce')
-            ngay_hom_nay = datetime.now()
-            df_phan_tich['Tuổi'] = ((ngay_hom_nay - df_phan_tich['Ngày sinh']).dt.days)/365
-            df_phan_tich['Tuổi'] = df_phan_tich['Tuổi'].astype(int)
+            required_col = ['Insured ID','Nhóm khách hàng', 'Nhóm bệnh', 'Số tiền yêu cầu bồi thường', 'Số tiền đã được bồi thường','Chênh lệch','Cơ sở y tế','Nhóm quyền lợi','Lý do từ chối','Đơn vị tham gia BH','Ngày hiệu lực','Loại hình bồi thường','Giới tính','Ngày sinh']
+            try: 
+                df_phan_tich = df[required_col]
+                df_phan_tich['Ngày sinh'] = pd.to_datetime(df_phan_tich['Ngày sinh'], errors='coerce')
+                ngay_hom_nay = datetime.now()
+                df_phan_tich['Tuổi'] = ((ngay_hom_nay -df_phan_tich['Ngày sinh']).dt.days)/365
+                df_phan_tich['Tuổi'] = df_phan_tich['Tuổi'].astype(int)
+           
+            
+                # dataframes.append(df_phan_tich) 
+            except Exception:
+                missing_columns = [col for col in required_col if col not in df.columns]
 
-            dataframes.append(df_phan_tich)
+                if missing_columns:
+                    st.write("Các cột còn thiếu:", ', '.join(missing_columns))
         # elif 'nhansu' in uploaded_file.name.lower():
         #     df = df['Insured ID','Nhóm', 'Nhóm bệnh', 'Yêu cầu bồi thường', 'Đã được bồi thường','Chênh lệch','Cơ sở y tế','Nhóm quyền lợi','Lý do từ chối','Tên công ty']
         # else:
         #     # File không hợp lệ, xóa nó khỏi danh sách và cảnh báo
         #     st.error(f"Invalid file name: {uploaded_file.name}. This file does not match expected naming conventions.")
         #     uploaded_files.remove(uploaded_file)  # Xóa file không hợp lệ khỏi danh sách
+        for column in cot_quet_float:
+            if column in df.columns:
+                can_convert = df[column].apply(check_float_conversion)
+                if not can_convert.all():
+                    errors = True
+                    error_messages.append(f"Cột '{column}' có các giá trị lỗi sau:")
+                    invalid_values = df[~can_convert][column]
+                    error_messages.append(invalid_values.to_string(index=False))
+
+        # Kiểm tra điều kiện 2: Các cột ngày tháng đúng định dạng yyyy-mm-dd
+        for column in cot_quet_date:
+            if column in df.columns:
+                is_valid_date = df[column].apply(lambda x: check_datetime_conversion(x))
+                if not is_valid_date.all():
+                    errors = True
+                    error_messages.append(f"Cột '{column}' có các giá trị lỗi sau:")
+                    invalid_values = df[~is_valid_date][column]
+                    error_messages.append(invalid_values.to_string(index=False))  # Chỉ hiển thị giá trị lỗi
+
+        # Xử lý kết quả
+        if errors:
+            # Hiển thị tất cả các lỗi
+            st.write("Dữ liệu có lỗi! Vui lòng kiểm tra và sửa các dòng sau:")
+            for message in error_messages:
+                st.write(message)
+        else:
+            try:
+                dataframes.append(df_fullerton_cleaned) 
+            except Exception:
+                pass
+            try:
+                dataframes.append(df_phan_tich)
+            except Exception:
+                pass
+            try:
+                dataframes.append(df1)
+            except Exception:
+                pass
+            try:
+                dataframes.append(df2)
+            except Exception:
+                pass
 if dataframes:
     combined_df = pd.concat(dataframes, ignore_index=True)
     combined_df['Tuổi'] = combined_df['Tuổi'].apply(lambda x: "Dưới 18" if x < 18 
@@ -219,6 +311,7 @@ if dataframes:
                                                             else ("45-54" if x <= 54 
                                                                   else ("55-64" if x <= 64 
                                                                         else "Trên 65"))))))
+  
 else:
     combined_df = pd.DataFrame(columns=['Insured ID','Nhóm khách hàng', 'Nhóm bệnh', 'Số tiền yêu cầu bồi thường', 'Số tiền đã được bồi thường','Chênh lệch','Cơ sở y tế','Nhóm quyền lợi','Lý do từ chối','Đơn vị tham gia BH','Ngày hiệu lực','Loại hình bồi thường','Giới tính','Ngày sinh'])
 
@@ -259,9 +352,12 @@ try:
                 if nhansu_file:
                     nhansu_df = pd.read_excel(nhansu_file)  
                     if tencongty in nhansu_df['Tên công ty'].values:
-                        try:                   
-                            tongsonhanvien = nhansu_df["Đối tượng bảo hiểm"].value_counts().get("Nhân viên", 0)
-                            tongsonguoithan = nhansu_df["Đối tượng bảo hiểm"].value_counts().get("Người thân", 0)
+                        try:         
+                            filtered_df = nhansu_df[nhansu_df["Tên công ty"] == tencongty]          
+                            tongsonhanvien = filtered_df["Đối tượng bảo hiểm"].value_counts().get("Nhân viên", 0)
+                            tongsonguoithan = filtered_df["Đối tượng bảo hiểm"].value_counts().get("Người thân", 0)
+                            st.write(tongsonhanvien)
+                            st.write(tongsonguoithan)
                             tongsongdcbaohiem = tongsonhanvien+tongsonguoithan
                             group.insert(1, 'Số người được bảo hiểm',None)
                             group.loc[group[f'{lua_chon}'] == "Nhân viên", "Số người được bảo hiểm"] = tongsonhanvien
@@ -340,42 +436,42 @@ try:
                         (group['Số tiền được bồi thường']*1.1*100*425)/(((so_ngay_tham_gia_BH))*tongphibaohiem_nv),                         # Nếu điều kiện đúng
                         (group['Số tiền được bồi thường']*1.1*100*425)/((so_ngay_tham_gia_BH)*tongphibaohiem_nt)                        # Nếu điều kiện sai
                     )
-            except NameError:
-                pass
-            sum_tien_da_boi_thuong_theo_donvi = combined_df.groupby('Đơn vị tham gia BH')['Số tiền đã được bồi thường'].sum().reset_index(name='Tổng số tiền đã bồi thường')
-            sum_tien_da_boi_thuong_theo_level = combined_df.groupby('Nhóm khách hàng')['Số tiền đã được bồi thường'].sum().reset_index(name='Tổng số tiền đã bồi thường')
-            sum_tien_yeu_cau_boi_thuong_theo_level = combined_df.groupby('Nhóm khách hàng')['Số tiền yêu cầu bồi thường'].sum().reset_index(name='Tổng số tiền yêu cầu bồi thường')
-            tongsotienyeucauboithuongtheonhanvien = sum_tien_yeu_cau_boi_thuong_theo_level[sum_tien_yeu_cau_boi_thuong_theo_level["Nhóm khách hàng"] == "Nhân viên"]["Tổng số tiền yêu cầu bồi thường"]
-            tongsotienyeucauboithuongtheonguoithan = sum_tien_yeu_cau_boi_thuong_theo_level[sum_tien_yeu_cau_boi_thuong_theo_level["Nhóm khách hàng"] == "Người thân"]["Tổng số tiền yêu cầu bồi thường"]
-            tongsotiendaboithuongtheonhanvien = sum_tien_da_boi_thuong_theo_level[sum_tien_da_boi_thuong_theo_level["Nhóm khách hàng"] == "Nhân viên"]["Tổng số tiền đã bồi thường"]
-            tongsotiendaboithuongtheonguoithan = sum_tien_da_boi_thuong_theo_level[sum_tien_da_boi_thuong_theo_level["Nhóm khách hàng"] == "Người thân"]["Tổng số tiền đã bồi thường"]
-            try:
-                if float(tongsotienyeucauboithuongtheonguoithan) and float(tongsotienyeucauboithuongtheonhanvien):
-                    tongsotienyeucauboithuong = float(tongsotienyeucauboithuongtheonhanvien) + float(tongsotienyeucauboithuongtheonguoithan)
-            except TypeError:
-                try:         
-                    if float(tongsotienyeucauboithuongtheonhanvien) :
-                        tongsotienyeucauboithuong = float(tongsotienyeucauboithuongtheonhanvien)
-                except TypeError:
-                    try:
-                        if float(tongsotienyeucauboithuongtheonguoithan):
-                            tongsotienyeucauboithuong = float(tongsotienyeucauboithuongtheonguoithan)
-                    except TypeError:
-                        pass          
-            try:       
-                if  float(tongsotiendaboithuongtheonhanvien) and float(tongsotiendaboithuongtheonguoithan):
-                    tongsotiendaboithuong = float(tongsotiendaboithuongtheonhanvien) + float(tongsotiendaboithuongtheonguoithan)  
-            except TypeError:
-                try:
-                    if  float(tongsotiendaboithuongtheonhanvien) :
-                        tongsotiendaboithuong = float(tongsotiendaboithuongtheonhanvien)
-                except TypeError:
-                    try:
-                        if  float(tongsotiendaboithuongtheonguoithan):
-                            tongsotiendaboithuong = float(tongsotiendaboithuongtheonguoithan)
-                    except TypeError:
-                        pass
-            tongsonguoiyeucauboithuong = group['Số người yêu cầu bồi thường'].sum()
+            except (NameError,IndexError):
+                st.write("Tên công ty không trùng khớp")
+            # sum_tien_da_boi_thuong_theo_donvi = combined_df.groupby('Đơn vị tham gia BH')['Số tiền đã được bồi thường'].sum().reset_index(name='Tổng số tiền đã bồi thường')
+            # sum_tien_da_boi_thuong_theo_level = combined_df.groupby('Nhóm khách hàng')['Số tiền đã được bồi thường'].sum().reset_index(name='Tổng số tiền đã bồi thường')
+            # sum_tien_yeu_cau_boi_thuong_theo_level = combined_df.groupby('Nhóm khách hàng')['Số tiền yêu cầu bồi thường'].sum().reset_index(name='Tổng số tiền yêu cầu bồi thường')
+            # tongsotienyeucauboithuongtheonhanvien = sum_tien_yeu_cau_boi_thuong_theo_level[sum_tien_yeu_cau_boi_thuong_theo_level["Nhóm khách hàng"] == "Nhân viên"]["Tổng số tiền yêu cầu bồi thường"]
+            # tongsotienyeucauboithuongtheonguoithan = sum_tien_yeu_cau_boi_thuong_theo_level[sum_tien_yeu_cau_boi_thuong_theo_level["Nhóm khách hàng"] == "Người thân"]["Tổng số tiền yêu cầu bồi thường"]
+            # tongsotiendaboithuongtheonhanvien = sum_tien_da_boi_thuong_theo_level[sum_tien_da_boi_thuong_theo_level["Nhóm khách hàng"] == "Nhân viên"]["Tổng số tiền đã bồi thường"]
+            # tongsotiendaboithuongtheonguoithan = sum_tien_da_boi_thuong_theo_level[sum_tien_da_boi_thuong_theo_level["Nhóm khách hàng"] == "Người thân"]["Tổng số tiền đã bồi thường"]
+            # try:
+            #     if float(tongsotienyeucauboithuongtheonguoithan) and float(tongsotienyeucauboithuongtheonhanvien):
+            #         tongsotienyeucauboithuong = float(tongsotienyeucauboithuongtheonhanvien) + float(tongsotienyeucauboithuongtheonguoithan)
+            # except TypeError:
+            #     try:         
+            #         if float(tongsotienyeucauboithuongtheonhanvien) :
+            #             tongsotienyeucauboithuong = float(tongsotienyeucauboithuongtheonhanvien)
+            #     except TypeError:
+            #         try:
+            #             if float(tongsotienyeucauboithuongtheonguoithan):
+            #                 tongsotienyeucauboithuong = float(tongsotienyeucauboithuongtheonguoithan)
+            #         except TypeError:
+            #             pass          
+            # try:       
+            #     if  float(tongsotiendaboithuongtheonhanvien) and float(tongsotiendaboithuongtheonguoithan):
+            #         tongsotiendaboithuong = float(tongsotiendaboithuongtheonhanvien) + float(tongsotiendaboithuongtheonguoithan)  
+            # except TypeError:
+            #     try:
+            #         if  float(tongsotiendaboithuongtheonhanvien) :
+            #             tongsotiendaboithuong = float(tongsotiendaboithuongtheonhanvien)
+            #     except TypeError:
+            #         try:
+            #             if  float(tongsotiendaboithuongtheonguoithan):
+            #                 tongsotiendaboithuong = float(tongsotiendaboithuongtheonguoithan)
+            #         except TypeError:
+            #             pass
+            # tongsonguoiyeucauboithuong = group['Số người yêu cầu bồi thường'].sum()
             group['Số tiền được bồi thường'] = group['Số tiền được bồi thường'].astype(float)
             group['Số người yêu cầu bồi thường'] = group['Số người yêu cầu bồi thường'].astype(float)
             try :
@@ -410,8 +506,8 @@ try:
             group.loc[group[f'{lua_chon}'] == "Total", "%Trường hợp"] = group["%Trường hợp"].sum()
             group.loc[group[f'{lua_chon}'] == "Total", "Số người yêu cầu bồi thường"] = group["Số người yêu cầu bồi thường"].sum()
             group.loc[group[f'{lua_chon}'] == "Total", "Số tiền yêu cầu bồi thường"] = group["Số tiền yêu cầu bồi thường"].sum()
-            group.loc[group[f'{lua_chon}'] == "Total", "Số tiền bồi thường trung bình/người"] =   tongsotiendaboithuong/float(tongsonguoiyeucauboithuong)
-            group.loc[group[f'{lua_chon}'] == "Total", "Tỉ lệ thành công"] =   tongsotiendaboithuong*100/tongsotienyeucauboithuong
+            group.loc[group[f'{lua_chon}'] == "Total", "Số tiền bồi thường trung bình/người"] =   group["Số tiền được bồi thường"].sum()/group["Số người yêu cầu bồi thường"].sum()
+            group.loc[group[f'{lua_chon}'] == "Total", "Tỉ lệ thành công"] =   group["Số tiền được bồi thường"].sum()*100/group["Số tiền yêu cầu bồi thường"].sum()
             if lua_chon == 'Nhóm khách hàng' and hopdongbaohiem_file is not None:
                 try:
                     group.loc[group[f'{lua_chon}'] == "Total", "Tỉ lệ loss thực tế"] = (group['Số tiền được bồi thường']*100)/(float(tong_phi_bao_hiem))
@@ -491,4 +587,4 @@ try:
         except NameError:
             pass
 except Exception:
-    st.header('Truyền thông tin cần phân tích')
+    st.markdown('<div class="title">Dữ liệu cần phân tích chưa được truyền vào hoặc bị lỗi</div>', unsafe_allow_html=True)
