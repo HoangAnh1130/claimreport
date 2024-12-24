@@ -120,11 +120,20 @@ else:
     
 if 'top_by' not in st.session_state:
     st.session_state.top_by = ''
-if st.button('Top 5 theo số tiền đã bồi thường'):
-    st.session_state.top_by = 'ST'
-if st.button('Top 5 theo số người yêu cầu bồi thường'):
-    st.session_state.top_by = 'SN'
-
+if lua_chon in ['Cơ sở y tế','Nhóm bệnh']:
+    col1,col2 = st.columns(2)
+    with col1:      
+        if st.button('Top 5 theo số tiền đã bồi thường'):
+            st.session_state.top_by = 'ST5'
+        if st.button('Top 5 theo số người yêu cầu bồi thường'):
+            st.session_state.top_by = 'SN5'
+    with col2:
+        # if st.button('Top 10 theo số tiền đã bồi thường'):
+        #     st.session_state.top_by = 'ST10'
+        # if st.button('Top 10 theo số người yêu cầu bồi thường'):
+        #     st.session_state.top_by = 'SN10'
+        if st.button('Tất cả'):
+            st.session_state.top_by = 'TC'
 
 # Hiển thị tiêu đề
 st.markdown('<div class="title">CLAIM REPORT</div>', unsafe_allow_html=True)
@@ -162,10 +171,10 @@ for uploaded_file in uploaded_files:
         elif "pvi" in uploaded_file.name.lower():
             df1 = df
             df1 = df1.drop(index = [0,1])   
-            df1 = df1[['Số hồ sơ bồi thường','Đối tượng bảo hiểm','Nhóm bệnh','Số tiền yêu cầu BT','Số tiền bồi thường\n(100%)','Số tiền từ chối BT','Cơ sở y tế','Nhóm quyền lợi','Nguyên nhân từ chối BT',
+            df1 = df1[['Số hồ sơ bồi thường','Đối tượng bảo hiểm','Nhóm bệnh','Số tiền yêu cầu BT','Số tiền bồi thường\n(100%)','Số tiền từ chối BT','Cơ sở y tế','Quyền lợi BH','Nguyên nhân từ chối BT',
                     'Đơn vị tham gia BH','Từ ngày','Phương thức khai thác','Tuổi NĐBH']]
             df1.rename(columns={'Số hồ sơ bồi thường': 'Insured ID', 'Đối tượng bảo hiểm':'Nhóm khách hàng','Số tiền yêu cầu BT':'Số tiền yêu cầu bồi thường','Số tiền bồi thường\n(100%)':'Số tiền đã được bồi thường',
-                                'Số tiền từ chối BT':'Chênh lệch','Nguyên nhân từ chối BT':'Lý do từ chối','Từ ngày':'Ngày hiệu lực','Phương thức khai thác':'Loại hình bồi thường','Tuổi NĐBH'  :'Tuổi'}, inplace= True)
+                                'Số tiền từ chối BT':'Chênh lệch','Nguyên nhân từ chối BT':'Lý do từ chối','Từ ngày':'Ngày hiệu lực','Phương thức khai thác':'Loại hình bồi thường','Tuổi NĐBH'  :'Tuổi','Quyền lợi BH' : 'Nhóm quyền lợi'}, inplace= True)
             df1.head(2)
             dataframes.append(df1) 
         elif "pti" in uploaded_file.name.lower():
@@ -245,8 +254,8 @@ if lua_chon in  ['Nhóm khách hàng','Loại hình bồi thường','Nhóm quy�
                 nhansu_df = pd.read_excel(nhansu_file)  
                 if tencongty in nhansu_df['Tên công ty'].values:
                     try:                   
-                        tongsonhanvien = nhansu_df.loc[nhansu_df['Tên công ty'] == tencongty, 'Họ tên nhân viên'].nunique()
-                        tongsonguoithan = nhansu_df.loc[nhansu_df['Tên công ty'] == tencongty, 'Họ tên người thân'].nunique()
+                        tongsonhanvien = nhansu_df["Đối tượng bảo hiểm"].value_counts().get("Nhân viên", 0)
+                        tongsonguoithan = nhansu_df["Đối tượng bảo hiểm"].value_counts().get("Người thân", 0)
                         tongsongdcbaohiem = tongsonhanvien+tongsonguoithan
                         group.insert(1, 'Số người được bảo hiểm',None)
                         group.loc[group[f'{lua_chon}'] == "Nhân viên", "Số người được bảo hiểm"] = tongsonhanvien
@@ -361,14 +370,28 @@ if lua_chon in  ['Nhóm khách hàng','Loại hình bồi thường','Nhóm quy�
                 except TypeError:
                     pass
         tongsonguoiyeucauboithuong = group['Số người yêu cầu bồi thường'].sum()
+        group['Số tiền được bồi thường'] = group['Số tiền được bồi thường'].astype(float)
+        group['Số người yêu cầu bồi thường'] = group['Số người yêu cầu bồi thường'].astype(float)
+        try :
+            top_5_case = group.sort_values(by='Số người yêu cầu bồi thường', ascending=False).head(5)
+            top_5_amount = group.sort_values(by='Số tiền được bồi thường', ascending=False).head(5)
+            top_10_case = group.sort_values(by='Số người yêu cầu bồi thường', ascending=False).head(10)
+            top_10_amount = group.sort_values(by='Số tiền được bồi thường', ascending=False).head(10)
+            
+            if lua_chon in ['Cơ sở y tế','Nhóm bệnh']:
+                if st.session_state.top_by == 'ST5':
+                    group = top_5_amount.copy()
+                elif st.session_state.top_by == 'SN5':
+                    group = top_5_case.copy()
+                # elif st.session_state.top_by == 'ST10':
+                #     group = top_10_case.copy()
+                # elif st.session_state.top_by == 'SN10':
+                #     group = top_10_amount.copy()
+                elif st.session_state.top_by == 'TC':
+                    pass
+        except NameError:
+            pass
         
-        top_5_case = group.sort_values(by='Số người yêu cầu bồi thường', ascending=False).head(5)
-        top_5_amount = group.sort_values(by='Số tiền được bồi thường', ascending=False).head(5)
-        if st.session_state.top_by ==  'ST' :
-            group =  top_5_amount
-        elif st.session_state.top_by ==  'SN' :
-            group =  top_5_case
-    
         group.loc[len(group), f'{lua_chon}'] = "Total"
         group.loc[group[f'{lua_chon}'] == "Total", "Số tiền được bồi thường"] = group["Số tiền được bồi thường"].sum()
         group.loc[group[f'{lua_chon}'] == "Total", "Tỉ lệ thành công"] = ''
@@ -445,18 +468,19 @@ if lua_chon in  ['Nhóm khách hàng','Loại hình bồi thường','Nhóm quy�
     
     style_table(group_display)
 
-    
-    col_pie_chart1, col_pie_chart2 = st.columns(2)
-    with col_pie_chart1:
-        pie_chart1 = px.pie(top_5_case, names=f'{lua_chon}', values="Số hồ sơ bồi thường", title=f'Số hồ sơ yêu cầu bồi thường theo {lua_chon.lower()}', 
-            color=f'{lua_chon}',  
-            color_discrete_map={
-                "Dependant": "#3A0751", 
-                "Employee": "#f2c85b"
-            },  # Ánh xạ màu
-            hole=0.6)
-        st.plotly_chart(pie_chart1)
-    with col_pie_chart2:
-        pie_chart2 = px.pie(top_5_amount, names=f'{lua_chon}', values="Số tiền được bồi thường", title=f'Số tiền đã bồi thường theo {lua_chon.lower()}',hole=0.6)
-        st.plotly_chart(pie_chart2)
-    
+    try:
+        col_pie_chart1, col_pie_chart2 = st.columns(2)
+        with col_pie_chart1:
+            pie_chart1 = px.pie(top_5_case, names=f'{lua_chon}', values="Số hồ sơ bồi thường", title=f'Số hồ sơ yêu cầu bồi thường theo {lua_chon.lower()}', 
+                color=f'{lua_chon}',  
+                color_discrete_map={
+                    "Dependant": "#3A0751", 
+                    "Employee": "#f2c85b"
+                },  # Ánh xạ màu
+                hole=0.6)
+            st.plotly_chart(pie_chart1)
+        with col_pie_chart2:
+            pie_chart2 = px.pie(top_5_amount, names=f'{lua_chon}', values="Số tiền được bồi thường", title=f'Số tiền đã bồi thường theo {lua_chon.lower()}',hole=0.6)
+            st.plotly_chart(pie_chart2)
+    except NameError:
+        pass
