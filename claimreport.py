@@ -216,271 +216,273 @@ if dataframes:
 else:
     combined_df = pd.DataFrame(columns=['Insured ID','Nhóm khách hàng', 'Nhóm bệnh', 'Số tiền yêu cầu bồi thường', 'Số tiền đã được bồi thường','Chênh lệch','Cơ sở y tế','Nhóm quyền lợi','Lý do từ chối','Đơn vị tham gia BH','Ngày hiệu lực','Loại hình bồi thường','Giới tính','Ngày sinh'])
 
+try:
+    if lua_chon in  ['Nhóm khách hàng','Loại hình bồi thường','Nhóm quyền lợi','Đơn vị tham gia BH','Nhóm bệnh','Cơ sở y tế','Giới tính','Tuổi']:
+        option = lua_chon
+        group = duckdb.sql(
+            f"""
+        SELECT 
+            "{option}",
+            count(distinct "Insured ID") as "Số người yêu cầu bồi thường",
+            count("Insured ID") as "Số hồ sơ bồi thường",
+            ROUND(COUNT("Insured ID") * 100.0 / (SELECT COUNT(*) FROM combined_df), 1) as "%Trường hợp",
+            ROUND(SUM("Số tiền yêu cầu bồi thường")) AS "Số tiền yêu cầu bồi thường",
+            ROUND(SUM("Số tiền đã được bồi thường")) AS "Số tiền được bồi thường",
+            ROUND(SUM("Số tiền đã được bồi thường")/count(distinct "Insured ID")) as "Số tiền bồi thường trung bình/người",
+            round(SUM("Số tiền đã được bồi thường")*100/SUM("Số tiền yêu cầu bồi thường"),1) as "Tỉ lệ thành công"
+            -- datediff('day',STRPTIME(CAST("Ngày hiệu lực" AS VARCHAR), '%Y-%m-%d %H:%M:%S'), now()) as "Số ngày đã tham gia"
+        FROM combined_df
+        GROUP BY "{option}"
+    """
+        ).df()
 
-if lua_chon in  ['Nhóm khách hàng','Loại hình bồi thường','Nhóm quyền lợi','Đơn vị tham gia BH','Nhóm bệnh','Cơ sở y tế','Giới tính','Tuổi']:
-    option = lua_chon
-    group = duckdb.sql(
-        f"""
-    SELECT 
-        "{option}",
-        count(distinct "Insured ID") as "Số người yêu cầu bồi thường",
-        count("Insured ID") as "Số hồ sơ bồi thường",
-        ROUND(COUNT("Insured ID") * 100.0 / (SELECT COUNT(*) FROM combined_df), 1) as "%Trường hợp",
-        ROUND(SUM("Số tiền yêu cầu bồi thường")) AS "Số tiền yêu cầu bồi thường",
-        ROUND(SUM("Số tiền đã được bồi thường")) AS "Số tiền được bồi thường",
-        ROUND(SUM("Số tiền đã được bồi thường")/count(distinct "Insured ID")) as "Số tiền bồi thường trung bình/người",
-        round(SUM("Số tiền đã được bồi thường")*100/SUM("Số tiền yêu cầu bồi thường"),1) as "Tỉ lệ thành công"
-        -- datediff('day',STRPTIME(CAST("Ngày hiệu lực" AS VARCHAR), '%Y-%m-%d %H:%M:%S'), now()) as "Số ngày đã tham gia"
-    FROM combined_df
-    GROUP BY "{option}"
-"""
-    ).df()
-
-    if lua_chon == "Tuổi":
-        
-        group["Tuổi"] = group["Tuổi"].apply(
-            lambda x: f"{int(float(x)):,}" if isinstance(x, (int, float)) or (isinstance(x, str) and x.replace('.', '', 1).isdigit()) else x
-        )
-
-    if dataframes:    
-        tencongty = combined_df['Đơn vị tham gia BH'][0]
-        nhansu_file = None 
-        for file in uploaded_files:
-            if 'nhansu' in file.name.lower():  # Kiểm tra tên tệp có chứa 'nhansu'
-                nhansu_file = file
-                break
-        try:
-            if nhansu_file:
-                nhansu_df = pd.read_excel(nhansu_file)  
-                if tencongty in nhansu_df['Tên công ty'].values:
-                    try:                   
-                        tongsonhanvien = nhansu_df["Đối tượng bảo hiểm"].value_counts().get("Nhân viên", 0)
-                        tongsonguoithan = nhansu_df["Đối tượng bảo hiểm"].value_counts().get("Người thân", 0)
-                        tongsongdcbaohiem = tongsonhanvien+tongsonguoithan
-                        group.insert(1, 'Số người được bảo hiểm',None)
-                        group.loc[group[f'{lua_chon}'] == "Nhân viên", "Số người được bảo hiểm"] = tongsonhanvien
-                        group.loc[group[f'{lua_chon}'] == "Người thân", "Số người được bảo hiểm"] = tongsonguoithan
-                        group.insert(3, 'Tỉ lệ yêu cầu bồi thường',None)
-                        sonhanvienyeucauboithuong = group.loc[group['Nhóm khách hàng'] == 'Nhân viên', 'Số người yêu cầu bồi thường']
-                        songuoithanyeucauboithuong = group.loc[group['Nhóm khách hàng'] == 'Người thân', 'Số người yêu cầu bồi thường']
-                        # try: 
-                        #     sonhanvienyeucauboithuong = float(sonhanvienyeucauboithuong)
-                        # except TypeError:
-                        #     sonhanvienyeucauboithuong = 0
-                        # try: 
-                        #     songuoithanyeucauboithuong = float(songuoithanyeucauboithuong)
-                        # except TypeError:
-                        #     songuoithanyeucauboithuong = 0
-                        group.loc[group[f'{lua_chon}'] == "Nhân viên", "Tỉ lệ yêu cầu bồi thường"] = sonhanvienyeucauboithuong*100/tongsonhanvien
-                        group.loc[group[f'{lua_chon}'] == "Người thân", "Tỉ lệ yêu cầu bồi thường"] = songuoithanyeucauboithuong*100/tongsonguoithan
-                        
-                        # try:
-                        #     group.loc[group[f'{lua_chon}'] == "Nhân viên", "Tỉ lệ yêu cầu bồi thường"] = sonhanvienyeucauboithuong*100/tongsonhanvien
-                        # except ZeroDivisionError:
-                        #     group.loc[group[f'{lua_chon}'] == "Người thân", "Tỉ lệ yêu cầu bồi thường"] = 0
-                        # try:
-                        #     group.loc[group[f'{lua_chon}'] == "Người thân", "Tỉ lệ yêu cầu bồi thường"] = songuoithanyeucauboithuong*100/tongsonguoithan
-                        # except ZeroDivisionError:
-                        #     group.loc[group[f'{lua_chon}'] == "Người thân", "Tỉ lệ yêu cầu bồi thường"] = 0 
-                    # result = pd.merge(group, nhansu_df, how='right', on='Insure ID')
-                    # count = result.groupby('Insure ID')['Insure ID'].count().reset_index(name='Số người được bảo hiểm')
-                    # a = group["Số người yêu cầu bồi thường"] / group['Số người được bảo hiểm']
-                    # group.insert(3, 'Tỉ lệ yêu cầu bồi thường', a )
-                    except KeyError:
-                        pass
-            else:
-                pass
-        except NameError:
-            pass    
+        if lua_chon == "Tuổi":
             
-            
-        hopdongbaohiem_file = None 
-        for file in uploaded_files:
-            if 'hopdongbaohiem' in file.name.lower():  # Kiểm tra tên tệp có chứa 'nhansu'
-                hopdongbaohiem_file = file
-                break
-        try:
-            if hopdongbaohiem_file:  
-                hopdongbaohiem_df = pd.read_excel(hopdongbaohiem_file)
-                ngay_intable = hopdongbaohiem_df['Ngày bắt đầu'].loc[(hopdongbaohiem_df['Tên công ty'] == tencongty) & ((hopdongbaohiem_df['Nhóm khách hàng'] == 'Nhân viên'))]
-                ngay_hieu_luc = pd.to_datetime(ngay_intable.iloc[0])
-                ngay_lam_bao_cao = datetime.now()
-                so_ngay_tham_gia_BH = (ngay_lam_bao_cao-ngay_hieu_luc).days
-                tongphibaohiem_nv = hopdongbaohiem_df['Tổng phí bảo hiểm'].loc[(hopdongbaohiem_df['Tên công ty'] == tencongty) & ((hopdongbaohiem_df['Nhóm khách hàng'] == 'Nhân viên'))]
-                tongphibaohiem_nt = hopdongbaohiem_df['Tổng phí bảo hiểm'].loc[(hopdongbaohiem_df['Tên công ty'] == tencongty) & ((hopdongbaohiem_df['Nhóm khách hàng'] == 'Người thân'))]
-                sum_tien_phi_BH_theo_donvi = hopdongbaohiem_df.groupby('Tên công ty')['Tổng phí bảo hiểm'].sum().reset_index(name='Tổng phí bảo hiểm')
-                tong_phi_bao_hiem = sum_tien_phi_BH_theo_donvi['Tổng phí bảo hiểm'].loc[(sum_tien_phi_BH_theo_donvi['Tên công ty'] == tencongty)]
-                so_ngay_tham_gia_BH = float(so_ngay_tham_gia_BH)
-                group['Số tiền được bồi thường'] = group['Số tiền được bồi thường'].astype(float)
-                        
-                try:
-                    tongphibaohiem_nv = float(tongphibaohiem_nv)
-                except TypeError:
-                    tongphibaohiem_nv = 1
-                try:
-                    tongphibaohiem_nt = float(tongphibaohiem_nt)
-                except TypeError:
-                    tongphibaohiem_nt = 1
-                # group = pd.merge(group, df_tinh_toan[[f'{option}', 'Tỉ lệ loss thực tế', 'Tỉ lệ loss ước tính (14m)']], on=f'{option}', how='left')
-                if lua_chon == 'Nhóm khách hàng':
-                    group["Tỉ lệ loss thực tế"] = np.where(
-                    group["Nhóm khách hàng"] == "Nhân viên",  # Điều kiện
-                    (group['Số tiền được bồi thường']*100)/(tongphibaohiem_nv),                         # Nếu điều kiện đúng
-                    (group['Số tiền được bồi thường']*100)/(tongphibaohiem_nt)                      # Nếu điều kiện sai
-                )
-                        
-                    group["Tỉ lệ loss ước tính (14m)"] = np.where(
-                    group["Nhóm khách hàng"] == "Nhân viên",  # Điều kiện
-                    (group['Số tiền được bồi thường']*1.1*100*425)/(((so_ngay_tham_gia_BH))*tongphibaohiem_nv),                         # Nếu điều kiện đúng
-                    (group['Số tiền được bồi thường']*1.1*100*425)/((so_ngay_tham_gia_BH)*tongphibaohiem_nt)                        # Nếu điều kiện sai
-                )
-        except NameError:
-            pass
-        sum_tien_da_boi_thuong_theo_donvi = combined_df.groupby('Đơn vị tham gia BH')['Số tiền đã được bồi thường'].sum().reset_index(name='Tổng số tiền đã bồi thường')
-        sum_tien_da_boi_thuong_theo_level = combined_df.groupby('Nhóm khách hàng')['Số tiền đã được bồi thường'].sum().reset_index(name='Tổng số tiền đã bồi thường')
-        sum_tien_yeu_cau_boi_thuong_theo_level = combined_df.groupby('Nhóm khách hàng')['Số tiền yêu cầu bồi thường'].sum().reset_index(name='Tổng số tiền yêu cầu bồi thường')
-        tongsotienyeucauboithuongtheonhanvien = sum_tien_yeu_cau_boi_thuong_theo_level[sum_tien_yeu_cau_boi_thuong_theo_level["Nhóm khách hàng"] == "Nhân viên"]["Tổng số tiền yêu cầu bồi thường"]
-        tongsotienyeucauboithuongtheonguoithan = sum_tien_yeu_cau_boi_thuong_theo_level[sum_tien_yeu_cau_boi_thuong_theo_level["Nhóm khách hàng"] == "Người thân"]["Tổng số tiền yêu cầu bồi thường"]
-        tongsotiendaboithuongtheonhanvien = sum_tien_da_boi_thuong_theo_level[sum_tien_da_boi_thuong_theo_level["Nhóm khách hàng"] == "Nhân viên"]["Tổng số tiền đã bồi thường"]
-        tongsotiendaboithuongtheonguoithan = sum_tien_da_boi_thuong_theo_level[sum_tien_da_boi_thuong_theo_level["Nhóm khách hàng"] == "Người thân"]["Tổng số tiền đã bồi thường"]
-        try:
-            if float(tongsotienyeucauboithuongtheonguoithan) and float(tongsotienyeucauboithuongtheonhanvien):
-                tongsotienyeucauboithuong = float(tongsotienyeucauboithuongtheonhanvien) + float(tongsotienyeucauboithuongtheonguoithan)
-        except TypeError:
-            try:         
-                if float(tongsotienyeucauboithuongtheonhanvien) :
-                    tongsotienyeucauboithuong = float(tongsotienyeucauboithuongtheonhanvien)
-            except TypeError:
-                try:
-                    if float(tongsotienyeucauboithuongtheonguoithan):
-                        tongsotienyeucauboithuong = float(tongsotienyeucauboithuongtheonguoithan)
-                except TypeError:
-                    pass          
-        try:       
-            if  float(tongsotiendaboithuongtheonhanvien) and float(tongsotiendaboithuongtheonguoithan):
-                tongsotiendaboithuong = float(tongsotiendaboithuongtheonhanvien) + float(tongsotiendaboithuongtheonguoithan)  
-        except TypeError:
+            group["Tuổi"] = group["Tuổi"].apply(
+                lambda x: f"{int(float(x)):,}" if isinstance(x, (int, float)) or (isinstance(x, str) and x.replace('.', '', 1).isdigit()) else x
+            )
+
+        if dataframes:    
+            tencongty = combined_df['Đơn vị tham gia BH'][0]
+            nhansu_file = None 
+            for file in uploaded_files:
+                if 'nhansu' in file.name.lower():  # Kiểm tra tên tệp có chứa 'nhansu'
+                    nhansu_file = file
+                    break
             try:
-                if  float(tongsotiendaboithuongtheonhanvien) :
-                    tongsotiendaboithuong = float(tongsotiendaboithuongtheonhanvien)
-            except TypeError:
-                try:
-                    if  float(tongsotiendaboithuongtheonguoithan):
-                        tongsotiendaboithuong = float(tongsotiendaboithuongtheonguoithan)
-                except TypeError:
+                if nhansu_file:
+                    nhansu_df = pd.read_excel(nhansu_file)  
+                    if tencongty in nhansu_df['Tên công ty'].values:
+                        try:                   
+                            tongsonhanvien = nhansu_df["Đối tượng bảo hiểm"].value_counts().get("Nhân viên", 0)
+                            tongsonguoithan = nhansu_df["Đối tượng bảo hiểm"].value_counts().get("Người thân", 0)
+                            tongsongdcbaohiem = tongsonhanvien+tongsonguoithan
+                            group.insert(1, 'Số người được bảo hiểm',None)
+                            group.loc[group[f'{lua_chon}'] == "Nhân viên", "Số người được bảo hiểm"] = tongsonhanvien
+                            group.loc[group[f'{lua_chon}'] == "Người thân", "Số người được bảo hiểm"] = tongsonguoithan
+                            group.insert(3, 'Tỉ lệ yêu cầu bồi thường',None)
+                            sonhanvienyeucauboithuong = group.loc[group['Nhóm khách hàng'] == 'Nhân viên', 'Số người yêu cầu bồi thường']
+                            songuoithanyeucauboithuong = group.loc[group['Nhóm khách hàng'] == 'Người thân', 'Số người yêu cầu bồi thường']
+                            # try: 
+                            #     sonhanvienyeucauboithuong = float(sonhanvienyeucauboithuong)
+                            # except TypeError:
+                            #     sonhanvienyeucauboithuong = 0
+                            # try: 
+                            #     songuoithanyeucauboithuong = float(songuoithanyeucauboithuong)
+                            # except TypeError:
+                            #     songuoithanyeucauboithuong = 0
+                            group.loc[group[f'{lua_chon}'] == "Nhân viên", "Tỉ lệ yêu cầu bồi thường"] = sonhanvienyeucauboithuong*100/tongsonhanvien
+                            group.loc[group[f'{lua_chon}'] == "Người thân", "Tỉ lệ yêu cầu bồi thường"] = songuoithanyeucauboithuong*100/tongsonguoithan
+                            
+                            # try:
+                            #     group.loc[group[f'{lua_chon}'] == "Nhân viên", "Tỉ lệ yêu cầu bồi thường"] = sonhanvienyeucauboithuong*100/tongsonhanvien
+                            # except ZeroDivisionError:
+                            #     group.loc[group[f'{lua_chon}'] == "Người thân", "Tỉ lệ yêu cầu bồi thường"] = 0
+                            # try:
+                            #     group.loc[group[f'{lua_chon}'] == "Người thân", "Tỉ lệ yêu cầu bồi thường"] = songuoithanyeucauboithuong*100/tongsonguoithan
+                            # except ZeroDivisionError:
+                            #     group.loc[group[f'{lua_chon}'] == "Người thân", "Tỉ lệ yêu cầu bồi thường"] = 0 
+                        # result = pd.merge(group, nhansu_df, how='right', on='Insure ID')
+                        # count = result.groupby('Insure ID')['Insure ID'].count().reset_index(name='Số người được bảo hiểm')
+                        # a = group["Số người yêu cầu bồi thường"] / group['Số người được bảo hiểm']
+                        # group.insert(3, 'Tỉ lệ yêu cầu bồi thường', a )
+                        except KeyError:
+                            pass
+                else:
                     pass
-        tongsonguoiyeucauboithuong = group['Số người yêu cầu bồi thường'].sum()
-        group['Số tiền được bồi thường'] = group['Số tiền được bồi thường'].astype(float)
-        group['Số người yêu cầu bồi thường'] = group['Số người yêu cầu bồi thường'].astype(float)
-        try :
-            top_5_case = group.sort_values(by='Số người yêu cầu bồi thường', ascending=False).head(5)
-            top_5_amount = group.sort_values(by='Số tiền được bồi thường', ascending=False).head(5)
-            top_10_case = group.sort_values(by='Số người yêu cầu bồi thường', ascending=False).head(10)
-            top_10_amount = group.sort_values(by='Số tiền được bồi thường', ascending=False).head(10)
-            
-            if lua_chon in ['Cơ sở y tế','Nhóm bệnh']:
-                if st.session_state.top_by == 'ST5':
-                    group = top_5_amount.copy()
-                elif st.session_state.top_by == 'SN5':
-                    group = top_5_case.copy()
-                # elif st.session_state.top_by == 'ST10':
-                #     group = top_10_case.copy()
-                # elif st.session_state.top_by == 'SN10':
-                #     group = top_10_amount.copy()
-                elif st.session_state.top_by == 'TC':
-                    pass
-        except NameError:
-            pass
-        
-        group.loc[len(group), f'{lua_chon}'] = "Total"
-        group.loc[group[f'{lua_chon}'] == "Total", "Số tiền được bồi thường"] = group["Số tiền được bồi thường"].sum()
-        group.loc[group[f'{lua_chon}'] == "Total", "Tỉ lệ thành công"] = ''
-        try:
-            group.loc[group[f'{lua_chon}'] == "Total", "Số người được bảo hiểm"] = group["Số người được bảo hiểm"].sum()
-            group.loc[group[f'{lua_chon}'] == "Total", "Tỉ lệ yêu cầu bồi thường"] = group["Số người yêu cầu bồi thường"].sum()*100/tongsongdcbaohiem
-        except KeyError:
-            pass
-        group.loc[group[f'{lua_chon}'] == "Total", "Số hồ sơ bồi thường"] = group["Số hồ sơ bồi thường"].sum()
-        group.loc[group[f'{lua_chon}'] == "Total", "%Trường hợp"] = group["%Trường hợp"].sum()
-        group.loc[group[f'{lua_chon}'] == "Total", "Số người yêu cầu bồi thường"] = group["Số người yêu cầu bồi thường"].sum()
-        group.loc[group[f'{lua_chon}'] == "Total", "Số tiền yêu cầu bồi thường"] = group["Số tiền yêu cầu bồi thường"].sum()
-        group.loc[group[f'{lua_chon}'] == "Total", "Số tiền bồi thường trung bình/người"] =   tongsotiendaboithuong/float(tongsonguoiyeucauboithuong)
-        group.loc[group[f'{lua_chon}'] == "Total", "Tỉ lệ thành công"] =   tongsotiendaboithuong*100/tongsotienyeucauboithuong
-        if lua_chon == 'Nhóm khách hàng' and hopdongbaohiem_file is not None:
-            try:
-                group.loc[group[f'{lua_chon}'] == "Total", "Tỉ lệ loss thực tế"] = (group['Số tiền được bồi thường']*100)/(float(tong_phi_bao_hiem))
-                group.loc[group[f'{lua_chon}'] == "Total", "Tỉ lệ loss ước tính (14m)"] = (group['Số tiền được bồi thường']*1.11*100*425)/((so_ngay_tham_gia_BH)*float(tong_phi_bao_hiem))
             except NameError:
-                group.loc[group[f'{lua_chon}'] == "Total", "Tỉ lệ loss thực tế"] = "NaN"
-                group.loc[group[f'{lua_chon}'] == "Total", "Tỉ lệ loss ước tính (14m)"] = "NaN"
+                pass    
+                
+                
+            hopdongbaohiem_file = None 
+            for file in uploaded_files:
+                if 'hopdongbaohiem' in file.name.lower():  # Kiểm tra tên tệp có chứa 'nhansu'
+                    hopdongbaohiem_file = file
+                    break
+            try:
+                if hopdongbaohiem_file:  
+                    hopdongbaohiem_df = pd.read_excel(hopdongbaohiem_file)
+                    ngay_intable = hopdongbaohiem_df['Ngày bắt đầu'].loc[(hopdongbaohiem_df['Tên công ty'] == tencongty) & ((hopdongbaohiem_df['Nhóm khách hàng'] == 'Nhân viên'))]
+                    ngay_hieu_luc = pd.to_datetime(ngay_intable.iloc[0])
+                    ngay_lam_bao_cao = datetime.now()
+                    so_ngay_tham_gia_BH = (ngay_lam_bao_cao-ngay_hieu_luc).days
+                    tongphibaohiem_nv = hopdongbaohiem_df['Tổng phí bảo hiểm'].loc[(hopdongbaohiem_df['Tên công ty'] == tencongty) & ((hopdongbaohiem_df['Nhóm khách hàng'] == 'Nhân viên'))]
+                    tongphibaohiem_nt = hopdongbaohiem_df['Tổng phí bảo hiểm'].loc[(hopdongbaohiem_df['Tên công ty'] == tencongty) & ((hopdongbaohiem_df['Nhóm khách hàng'] == 'Người thân'))]
+                    sum_tien_phi_BH_theo_donvi = hopdongbaohiem_df.groupby('Tên công ty')['Tổng phí bảo hiểm'].sum().reset_index(name='Tổng phí bảo hiểm')
+                    tong_phi_bao_hiem = sum_tien_phi_BH_theo_donvi['Tổng phí bảo hiểm'].loc[(sum_tien_phi_BH_theo_donvi['Tên công ty'] == tencongty)]
+                    so_ngay_tham_gia_BH = float(so_ngay_tham_gia_BH)
+                    group['Số tiền được bồi thường'] = group['Số tiền được bồi thường'].astype(float)
+                            
+                    try:
+                        tongphibaohiem_nv = float(tongphibaohiem_nv)
+                    except TypeError:
+                        tongphibaohiem_nv = 1
+                    try:
+                        tongphibaohiem_nt = float(tongphibaohiem_nt)
+                    except TypeError:
+                        tongphibaohiem_nt = 1
+                    # group = pd.merge(group, df_tinh_toan[[f'{option}', 'Tỉ lệ loss thực tế', 'Tỉ lệ loss ước tính (14m)']], on=f'{option}', how='left')
+                    if lua_chon == 'Nhóm khách hàng':
+                        group["Tỉ lệ loss thực tế"] = np.where(
+                        group["Nhóm khách hàng"] == "Nhân viên",  # Điều kiện
+                        (group['Số tiền được bồi thường']*100)/(tongphibaohiem_nv),                         # Nếu điều kiện đúng
+                        (group['Số tiền được bồi thường']*100)/(tongphibaohiem_nt)                      # Nếu điều kiện sai
+                    )
+                            
+                        group["Tỉ lệ loss ước tính (14m)"] = np.where(
+                        group["Nhóm khách hàng"] == "Nhân viên",  # Điều kiện
+                        (group['Số tiền được bồi thường']*1.1*100*425)/(((so_ngay_tham_gia_BH))*tongphibaohiem_nv),                         # Nếu điều kiện đúng
+                        (group['Số tiền được bồi thường']*1.1*100*425)/((so_ngay_tham_gia_BH)*tongphibaohiem_nt)                        # Nếu điều kiện sai
+                    )
+            except NameError:
+                pass
+            sum_tien_da_boi_thuong_theo_donvi = combined_df.groupby('Đơn vị tham gia BH')['Số tiền đã được bồi thường'].sum().reset_index(name='Tổng số tiền đã bồi thường')
+            sum_tien_da_boi_thuong_theo_level = combined_df.groupby('Nhóm khách hàng')['Số tiền đã được bồi thường'].sum().reset_index(name='Tổng số tiền đã bồi thường')
+            sum_tien_yeu_cau_boi_thuong_theo_level = combined_df.groupby('Nhóm khách hàng')['Số tiền yêu cầu bồi thường'].sum().reset_index(name='Tổng số tiền yêu cầu bồi thường')
+            tongsotienyeucauboithuongtheonhanvien = sum_tien_yeu_cau_boi_thuong_theo_level[sum_tien_yeu_cau_boi_thuong_theo_level["Nhóm khách hàng"] == "Nhân viên"]["Tổng số tiền yêu cầu bồi thường"]
+            tongsotienyeucauboithuongtheonguoithan = sum_tien_yeu_cau_boi_thuong_theo_level[sum_tien_yeu_cau_boi_thuong_theo_level["Nhóm khách hàng"] == "Người thân"]["Tổng số tiền yêu cầu bồi thường"]
+            tongsotiendaboithuongtheonhanvien = sum_tien_da_boi_thuong_theo_level[sum_tien_da_boi_thuong_theo_level["Nhóm khách hàng"] == "Nhân viên"]["Tổng số tiền đã bồi thường"]
+            tongsotiendaboithuongtheonguoithan = sum_tien_da_boi_thuong_theo_level[sum_tien_da_boi_thuong_theo_level["Nhóm khách hàng"] == "Người thân"]["Tổng số tiền đã bồi thường"]
+            try:
+                if float(tongsotienyeucauboithuongtheonguoithan) and float(tongsotienyeucauboithuongtheonhanvien):
+                    tongsotienyeucauboithuong = float(tongsotienyeucauboithuongtheonhanvien) + float(tongsotienyeucauboithuongtheonguoithan)
+            except TypeError:
+                try:         
+                    if float(tongsotienyeucauboithuongtheonhanvien) :
+                        tongsotienyeucauboithuong = float(tongsotienyeucauboithuongtheonhanvien)
+                except TypeError:
+                    try:
+                        if float(tongsotienyeucauboithuongtheonguoithan):
+                            tongsotienyeucauboithuong = float(tongsotienyeucauboithuongtheonguoithan)
+                    except TypeError:
+                        pass          
+            try:       
+                if  float(tongsotiendaboithuongtheonhanvien) and float(tongsotiendaboithuongtheonguoithan):
+                    tongsotiendaboithuong = float(tongsotiendaboithuongtheonhanvien) + float(tongsotiendaboithuongtheonguoithan)  
+            except TypeError:
+                try:
+                    if  float(tongsotiendaboithuongtheonhanvien) :
+                        tongsotiendaboithuong = float(tongsotiendaboithuongtheonhanvien)
+                except TypeError:
+                    try:
+                        if  float(tongsotiendaboithuongtheonguoithan):
+                            tongsotiendaboithuong = float(tongsotiendaboithuongtheonguoithan)
+                    except TypeError:
+                        pass
+            tongsonguoiyeucauboithuong = group['Số người yêu cầu bồi thường'].sum()
+            group['Số tiền được bồi thường'] = group['Số tiền được bồi thường'].astype(float)
+            group['Số người yêu cầu bồi thường'] = group['Số người yêu cầu bồi thường'].astype(float)
+            try :
+                top_5_case = group.sort_values(by='Số người yêu cầu bồi thường', ascending=False).head(5)
+                top_5_amount = group.sort_values(by='Số tiền được bồi thường', ascending=False).head(5)
+                top_10_case = group.sort_values(by='Số người yêu cầu bồi thường', ascending=False).head(10)
+                top_10_amount = group.sort_values(by='Số tiền được bồi thường', ascending=False).head(10)
+                
+                if lua_chon in ['Cơ sở y tế','Nhóm bệnh']:
+                    if st.session_state.top_by == 'ST5':
+                        group = top_5_amount.copy()
+                    elif st.session_state.top_by == 'SN5':
+                        group = top_5_case.copy()
+                    # elif st.session_state.top_by == 'ST10':
+                    #     group = top_10_case.copy()
+                    # elif st.session_state.top_by == 'SN10':
+                    #     group = top_10_amount.copy()
+                    elif st.session_state.top_by == 'TC':
+                        pass
+            except NameError:
+                pass
+            
+            group.loc[len(group), f'{lua_chon}'] = "Total"
+            group.loc[group[f'{lua_chon}'] == "Total", "Số tiền được bồi thường"] = group["Số tiền được bồi thường"].sum()
+            group.loc[group[f'{lua_chon}'] == "Total", "Tỉ lệ thành công"] = ''
+            try:
+                group.loc[group[f'{lua_chon}'] == "Total", "Số người được bảo hiểm"] = group["Số người được bảo hiểm"].sum()
+                group.loc[group[f'{lua_chon}'] == "Total", "Tỉ lệ yêu cầu bồi thường"] = group["Số người yêu cầu bồi thường"].sum()*100/tongsongdcbaohiem
+            except KeyError:
+                pass
+            group.loc[group[f'{lua_chon}'] == "Total", "Số hồ sơ bồi thường"] = group["Số hồ sơ bồi thường"].sum()
+            group.loc[group[f'{lua_chon}'] == "Total", "%Trường hợp"] = group["%Trường hợp"].sum()
+            group.loc[group[f'{lua_chon}'] == "Total", "Số người yêu cầu bồi thường"] = group["Số người yêu cầu bồi thường"].sum()
+            group.loc[group[f'{lua_chon}'] == "Total", "Số tiền yêu cầu bồi thường"] = group["Số tiền yêu cầu bồi thường"].sum()
+            group.loc[group[f'{lua_chon}'] == "Total", "Số tiền bồi thường trung bình/người"] =   tongsotiendaboithuong/float(tongsonguoiyeucauboithuong)
+            group.loc[group[f'{lua_chon}'] == "Total", "Tỉ lệ thành công"] =   tongsotiendaboithuong*100/tongsotienyeucauboithuong
+            if lua_chon == 'Nhóm khách hàng' and hopdongbaohiem_file is not None:
+                try:
+                    group.loc[group[f'{lua_chon}'] == "Total", "Tỉ lệ loss thực tế"] = (group['Số tiền được bồi thường']*100)/(float(tong_phi_bao_hiem))
+                    group.loc[group[f'{lua_chon}'] == "Total", "Tỉ lệ loss ước tính (14m)"] = (group['Số tiền được bồi thường']*1.11*100*425)/((so_ngay_tham_gia_BH)*float(tong_phi_bao_hiem))
+                except NameError:
+                    group.loc[group[f'{lua_chon}'] == "Total", "Tỉ lệ loss thực tế"] = "NaN"
+                    group.loc[group[f'{lua_chon}'] == "Total", "Tỉ lệ loss ước tính (14m)"] = "NaN"
 
-    group_display = group.copy()
-    def convert_to_int(df, columns):
-        for col in columns:
-            if col in df.columns:  # Kiểm tra cột có tồn tại trong DataFrame không
-                df[col] = df[col].apply(lambda x: int(x) if pd.notnull(x) else x)  # Chuyển đổi thành số nguyên
-        return df
-    columns_to_convert = ["Số người yêu cầu bồi thường", "Số hồ sơ bồi thường"]
-    group_display = convert_to_int(group_display, columns_to_convert)
-    def format_number(x):
-        return "{:,.0f}".format(x)
-    def format_percentage(value):
-        return "{:.2f}%".format(float(value)).replace('.', ',')
-    try:
-        group_display['Tỉ lệ loss thực tế'] =  group_display['Tỉ lệ loss thực tế'].apply(format_percentage)
-        group_display['Tỉ lệ loss ước tính (14m)'] =  group_display['Tỉ lệ loss ước tính (14m)'].apply(format_percentage)
-    except KeyError as e:
-        note = 'Khong tim thay cot'
-    group_display['Tỉ lệ thành công'] =  group_display['Tỉ lệ thành công'].apply(format_percentage)
-    group_display['%Trường hợp'] =  group_display['%Trường hợp'].apply(format_percentage)
-    group_display['Số tiền yêu cầu bồi thường'] = group_display['Số tiền yêu cầu bồi thường'].apply(format_number)
-    group_display['Số tiền được bồi thường'] = group_display['Số tiền được bồi thường'].apply(format_number)
-    group_display['Số tiền bồi thường trung bình/người'] = group_display['Số tiền bồi thường trung bình/người'].apply(format_number)
-    try:
-        group_display['Tỉ lệ yêu cầu bồi thường'] =  group_display['Tỉ lệ yêu cầu bồi thường'].apply(format_percentage)
-    except (KeyError,TypeError) as e:
-        note = 'Khong tim thay cot'
+        group_display = group.copy()
+        def convert_to_int(df, columns):
+            for col in columns:
+                if col in df.columns:  # Kiểm tra cột có tồn tại trong DataFrame không
+                    df[col] = df[col].apply(lambda x: int(x) if pd.notnull(x) else x)  # Chuyển đổi thành số nguyên
+            return df
+        columns_to_convert = ["Số người yêu cầu bồi thường", "Số hồ sơ bồi thường"]
+        group_display = convert_to_int(group_display, columns_to_convert)
+        def format_number(x):
+            return "{:,.0f}".format(x)
+        def format_percentage(value):
+            return "{:.2f}%".format(float(value)).replace('.', ',')
+        try:
+            group_display['Tỉ lệ loss thực tế'] =  group_display['Tỉ lệ loss thực tế'].apply(format_percentage)
+            group_display['Tỉ lệ loss ước tính (14m)'] =  group_display['Tỉ lệ loss ước tính (14m)'].apply(format_percentage)
+        except KeyError as e:
+            note = 'Khong tim thay cot'
+        group_display['Tỉ lệ thành công'] =  group_display['Tỉ lệ thành công'].apply(format_percentage)
+        group_display['%Trường hợp'] =  group_display['%Trường hợp'].apply(format_percentage)
+        group_display['Số tiền yêu cầu bồi thường'] = group_display['Số tiền yêu cầu bồi thường'].apply(format_number)
+        group_display['Số tiền được bồi thường'] = group_display['Số tiền được bồi thường'].apply(format_number)
+        group_display['Số tiền bồi thường trung bình/người'] = group_display['Số tiền bồi thường trung bình/người'].apply(format_number)
+        try:
+            group_display['Tỉ lệ yêu cầu bồi thường'] =  group_display['Tỉ lệ yêu cầu bồi thường'].apply(format_percentage)
+        except (KeyError,TypeError) as e:
+            note = 'Khong tim thay cot'
 
-    def style_table(df):
-        styles = [
-            {'selector': 'thead th',
-            'props': [('background-color', '#330099'),  # Màu xanh dương đậm
-                    ('color', 'white'),              # Chữ trắng
-                    ('font-weight', 'bold'),         # Chữ in đậm
-                    ('text-align', 'center')]}       # Chữ căn giữa
-            ]
-    
-    # Áp dụng màu nền xen kẽ cho các dòng dữ liệu
-        # def alternating_row_colors(row):
-        #     if row.name % 2 == 0:
-        #         return ['background-color: None'] * len(row)  # Hàng chẵn: trắng
-        #     else:
-        #         return ['background-color: None'] * len(row)  # Hàng lẻ: tím nhạt
+        def style_table(df):
+            styles = [
+                {'selector': 'thead th',
+                'props': [('background-color', '#330099'),  # Màu xanh dương đậm
+                        ('color', 'white'),              # Chữ trắng
+                        ('font-weight', 'bold'),         # Chữ in đậm
+                        ('text-align', 'center')]}       # Chữ căn giữa
+                ]
         
-    # Kết hợp styles
-        styled_df = df.style.set_table_styles(styles) 
-        # \
-        #                     .apply(alternating_row_colors, axis=1)
-    
-        st.markdown(styled_df.to_html(), unsafe_allow_html=True)
-        return styled_df
-    # top_10_amount = group_display.sort_values(by='Số người yêu cầu bồi thường', ascending=False).head(10)
-    
-    style_table(group_display)
+        # Áp dụng màu nền xen kẽ cho các dòng dữ liệu
+            # def alternating_row_colors(row):
+            #     if row.name % 2 == 0:
+            #         return ['background-color: None'] * len(row)  # Hàng chẵn: trắng
+            #     else:
+            #         return ['background-color: None'] * len(row)  # Hàng lẻ: tím nhạt
+            
+        # Kết hợp styles
+            styled_df = df.style.set_table_styles(styles) 
+            # \
+            #                     .apply(alternating_row_colors, axis=1)
+        
+            st.markdown(styled_df.to_html(), unsafe_allow_html=True)
+            return styled_df
+        # top_10_amount = group_display.sort_values(by='Số người yêu cầu bồi thường', ascending=False).head(10)
+        
+        style_table(group_display)
 
-    try:
-        col_pie_chart1, col_pie_chart2 = st.columns(2)
-        with col_pie_chart1:
-            pie_chart1 = px.pie(top_5_case, names=f'{lua_chon}', values="Số hồ sơ bồi thường", title=f'Số hồ sơ yêu cầu bồi thường theo {lua_chon.lower()}', 
-                color=f'{lua_chon}',  
-                color_discrete_map={
-                    "Dependant": "#3A0751", 
-                    "Employee": "#f2c85b"
-                },  # Ánh xạ màu
-                hole=0.6)
-            st.plotly_chart(pie_chart1)
-        with col_pie_chart2:
-            pie_chart2 = px.pie(top_5_amount, names=f'{lua_chon}', values="Số tiền được bồi thường", title=f'Số tiền đã bồi thường theo {lua_chon.lower()}',hole=0.6)
-            st.plotly_chart(pie_chart2)
-    except NameError:
-        pass
+        try:
+            col_pie_chart1, col_pie_chart2 = st.columns(2)
+            with col_pie_chart1:
+                pie_chart1 = px.pie(top_5_case, names=f'{lua_chon}', values="Số hồ sơ bồi thường", title=f'Số hồ sơ yêu cầu bồi thường theo {lua_chon.lower()}', 
+                    color=f'{lua_chon}',  
+                    color_discrete_map={
+                        "Dependant": "#3A0751", 
+                        "Employee": "#f2c85b"
+                    },  # Ánh xạ màu
+                    hole=0.6)
+                st.plotly_chart(pie_chart1)
+            with col_pie_chart2:
+                pie_chart2 = px.pie(top_5_amount, names=f'{lua_chon}', values="Số tiền được bồi thường", title=f'Số tiền đã bồi thường theo {lua_chon.lower()}',hole=0.6)
+                st.plotly_chart(pie_chart2)
+        except NameError:
+            pass
+except Exception:
+    st.header('Truyền thông tin cần phân tích')
