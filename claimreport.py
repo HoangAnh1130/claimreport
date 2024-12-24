@@ -197,7 +197,13 @@ for uploaded_file in uploaded_files:
             df_nhansu = df
         else: 
             df_phan_tich = df[['Insured ID', 'Nhóm khách hàng', 'Nhóm bệnh', 'Số tiền yêu cầu bồi thường', 'Số tiền đã được bồi thường', 'Chênh lệch', 'Cơ sở y tế', 'Nhóm quyền lợi', 'Lý do từ chối', 'Đơn vị tham gia BH', 'Ngày hiệu lực', 'Loại hình bồi thường', 'Giới tính', 'Ngày sinh']]
-            dataframes.append(df_phan_tich) 
+             
+            df_phan_tich['Ngày sinh'] = pd.to_datetime(df_phan_tich['Ngày sinh'], errors='coerce')
+            ngay_hom_nay = datetime.now()
+            df_phan_tich['Tuổi'] = ((ngay_hom_nay - df_phan_tich['Ngày sinh']).dt.days)/365
+            df_phan_tich['Tuổi'] = df_phan_tich['Tuổi'].astype(int)
+
+            dataframes.append(df_phan_tich)
         # elif 'nhansu' in uploaded_file.name.lower():
         #     df = df['Insured ID','Nhóm', 'Nhóm bệnh', 'Yêu cầu bồi thường', 'Đã được bồi thường','Chênh lệch','Cơ sở y tế','Nhóm quyền lợi','Lý do từ chối','Tên công ty']
         # else:
